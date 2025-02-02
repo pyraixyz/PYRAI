@@ -5,6 +5,7 @@ import Jobs from '@/pages/Jobs';
 import JobDetails from '@/pages/JobDetails';
 import SystemMetrics from '@/pages/SystemMetrics';
 import Models from '@/pages/Models';
+import Datasets from '@/pages/Datasets';
 
 export const router = createBrowserRouter([
   {
@@ -30,6 +31,10 @@ export const router = createBrowserRouter([
       {
         path: '/models',
         element: <Models />,
+      },
+      {
+        path: '/datasets',
+        element: <Datasets />,
       },
     ],
   },
