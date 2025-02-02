@@ -7,6 +7,7 @@ import SystemMetrics from '@/pages/SystemMetrics';
 import Models from '@/pages/Models';
 import Datasets from '@/pages/Datasets';
 import DatasetDetails from '@/pages/DatasetDetails';
+import DatasetPreprocessing from '@/pages/DatasetPreprocessing';
 import Settings from '@/pages/Settings';
 
 export const router = createBrowserRouter([
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
       {
         path: '/datasets/:datasetId',
         element: <DatasetDetails />,
+      },
+      {
+        path: '/datasets/:datasetId/preprocessing',
+        element: <DatasetPreprocessing />,
       },
       {
         path: '/settings',
