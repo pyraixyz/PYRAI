@@ -10,6 +10,7 @@ import DatasetDetails from '@/pages/DatasetDetails';
 import DatasetPreprocessing from '@/pages/DatasetPreprocessing';
 import Settings from '@/pages/Settings';
 import Users from '@/pages/Users';
+import Help from '@/pages/Help';
 
 export const router = createBrowserRouter([
   {
@@ -55,6 +56,10 @@ export const router = createBrowserRouter([
       {
         path: '/users',
         element: <Users />,
+      },
+      {
+        path: '/help',
+        element: <Help />,
       },
     ],
   },
