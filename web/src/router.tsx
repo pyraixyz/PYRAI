@@ -5,6 +5,7 @@ import Jobs from '@/pages/Jobs';
 import JobDetails from '@/pages/JobDetails';
 import SystemMetrics from '@/pages/SystemMetrics';
 import Models from '@/pages/Models';
+import ModelDetails from '@/pages/ModelDetails';
 import Datasets from '@/pages/Datasets';
 import DatasetDetails from '@/pages/DatasetDetails';
 import DatasetPreprocessing from '@/pages/DatasetPreprocessing';
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
       {
         path: '/models',
         element: <Models />,
+      },
+      {
+        path: '/models/:modelId',
+        element: <ModelDetails />,
       },
       {
         path: '/datasets',
