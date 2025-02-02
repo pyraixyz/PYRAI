@@ -7,6 +7,7 @@ import SystemMetrics from '@/pages/SystemMetrics';
 import Models from '@/pages/Models';
 import ModelDetails from '@/pages/ModelDetails';
 import ModelTraining from '@/pages/ModelTraining';
+import ModelEvaluation from '@/pages/ModelEvaluation';
 import Datasets from '@/pages/Datasets';
 import DatasetDetails from '@/pages/DatasetDetails';
 import DatasetPreprocessing from '@/pages/DatasetPreprocessing';
@@ -46,6 +47,10 @@ export const router = createBrowserRouter([
       {
         path: '/models/:modelId/training',
         element: <ModelTraining />,
+      },
+      {
+        path: '/models/:modelId/evaluation',
+        element: <ModelEvaluation />,
       },
       {
         path: '/datasets',
