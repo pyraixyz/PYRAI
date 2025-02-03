@@ -1,5 +1,5 @@
 # Base stage for both development and production
-FROM python:3.10-slim as base
+FROM python:3.13-slim as base
 
 WORKDIR /app
 
@@ -49,7 +49,7 @@ COPY . .
 CMD ["poetry", "run", "gunicorn", "pyrai.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]
 
 # Build stage
-FROM python:3.10-slim as builder
+FROM python:3.13-slim as builder
 
 WORKDIR /app
 
@@ -71,7 +71,7 @@ COPY README.md ./
 RUN poetry build
 
 # Runtime stage
-FROM python:3.10-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
