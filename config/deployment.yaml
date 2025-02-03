@@ -1,0 +1,52 @@
+# Deployment configuration
+
+serving:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  timeout: 30
+  keepalive: 5
+  max_requests: 1000
+  backlog: 2048
+  
+scaling:
+  min_replicas: 1
+  max_replicas: 5
+  target_cpu_utilization: 80
+  target_memory_utilization: 80
+  cooldown_period: 300
+  
+resources:
+  requests:
+    cpu: "1"
+    memory: "2Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+    
+networking:
+  ingress:
+    enabled: true
+    host: "api.example.com"
+    tls: true
+  service:
+    type: "LoadBalancer"
+    port: 80
+    
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+  grafana:
+    enabled: true
+    port: 3000
+    
+security:
+  authentication:
+    enabled: true
+    type: "jwt"
+    secret_key: "${JWT_SECRET}"
+  ssl:
+    enabled: true
+    cert_file: "certs/server.crt"
+    key_file: "certs/server.key" 

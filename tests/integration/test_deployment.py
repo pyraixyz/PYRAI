@@ -5,6 +5,8 @@ from engine.deployment.manager import DeploymentManager
 from engine.deployment.config import DeploymentConfig
 from engine.core.versioning import VersionManager
 from engine.backends.pytorch import PyTorchBackend
+from pyrai import Engine
+import torch.nn as nn
 
 @pytest.mark.integration
 def test_model_deployment(temp_dir, sample_model_pytorch):
@@ -65,4 +67,48 @@ def test_model_deployment(temp_dir, sample_model_pytorch):
     assert "predictions" in response.json()
     
     # Cleanup
-    deployment_manager.delete_deployment(deployment_name) 
+    deployment_manager.delete_deployment(deployment_name)
+
+class SimpleModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(10, 2)
+    
+    def forward(self, x):
+        return self.fc(x)
+
+@pytest.mark.integration
+def test_full_workflow():
+    """Test complete training and deployment workflow."""
+    # Initialize engine
+    engine = Engine(backend=PyTorchBackend())
+    
+    # Train model
+    model = SimpleModel()
+    train_data = torch.randn(100, 10)
+    labels = torch.randint(0, 2, (100,))
+    
+    history = engine.train(
+        model=model,
+        train_data=train_data,
+        labels=labels
+    )
+    
+    assert "loss" in history
+    
+    # Deploy model
+    deployment = engine.deploy(
+        model_id="test_model",
+        version="v1"
+    )
+    
+    assert deployment.status == "running"
+    
+    # Make predictions
+    inputs = torch.randn(1, 10)
+    predictions = deployment.predict(inputs)
+    
+    assert predictions.shape == (1, 2)
+    
+    # Clean up
+    deployment.delete() 

@@ -1,0 +1,67 @@
+# Default configuration
+
+training:
+  batch_size: 32
+  epochs: 100
+  learning_rate: 0.001
+  optimizer:
+    name: "adam"
+    weight_decay: 0.01
+  scheduler:
+    name: "cosine"
+    T_max: 100
+    eta_min: 0.0001
+
+model:
+  type: "pytorch"
+  device: "cuda"
+  save_dir: "models"
+  checkpoint_interval: 10
+
+data:
+  num_workers: 4
+  pin_memory: true
+  prefetch_factor: 2
+  persistent_workers: true
+
+deployment:
+  host: localhost
+  port: 8000
+  resources:
+    cpu: "1"
+    memory: "2Gi"
+  scaling:
+    min_replicas: 1
+    max_replicas: 3
+    target_cpu_utilization: 80
+
+monitoring:
+  enabled: true
+  interval: 1.0
+  save_metrics: true
+  metrics:
+    - latency
+    - throughput
+    - error_rate
+    - memory_usage
+    - cpu_usage
+  alerts:
+    high_latency:
+      condition: "latency > 1000"
+      actions:
+        - log
+        - notify_slack
+    high_error_rate:
+      condition: "error_rate > 0.01"
+      actions:
+        - log
+        - scale
+
+logging:
+  level: "INFO"
+  save_dir: "logs"
+  metrics_interval: 100
+  tensorboard: true
+  file_size: 10MB
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s" 
