@@ -10,7 +10,7 @@ jobs:
     if: github.actor == 'dependabot[bot]' || github.actor == 'dependabot-preview[bot]'
     steps:
       - name: Auto approve
-        uses: hmarr/auto-approve-action@v3
+        uses: hmarr/auto-approve-action@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-message: "Auto-approving dependabot PR"

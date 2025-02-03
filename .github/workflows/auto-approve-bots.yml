@@ -12,7 +12,7 @@ jobs:
       github.actor == 'renovate[bot]' ||
       github.actor == 'pyup-bot'
     steps:
-      - uses: hmarr/auto-approve-action@v3
+      - uses: hmarr/auto-approve-action@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-message: "Auto-approving bot PR" 
