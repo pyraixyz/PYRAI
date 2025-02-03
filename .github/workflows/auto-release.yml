@@ -1,0 +1,43 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'chore')"
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Get latest version
+      id: version
+      run: |
+        VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "::set-output name=version::$VERSION"
+
+    - name: Bump version
+      id: bump_version
+      uses: anothrNick/github-tag-action@1.36.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        WITH_V: true
+        DEFAULT_BUMP: patch
+        RELEASE_BRANCHES: main
+
+    - name: Create Release
+      if: steps.bump_version.outputs.new_tag != steps.version.outputs.version
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.bump_version.outputs.new_tag }}
+        release_name: Release ${{ steps.bump_version.outputs.new_tag }}
+        body: |
+          Changes in this Release:
+          ${{ github.event.head_commit.message }}
+        draft: false
+        prerelease: false 

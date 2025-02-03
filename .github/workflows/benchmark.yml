@@ -1,0 +1,41 @@
+name: Benchmark
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install pytest-benchmark
+
+    - name: Run benchmarks
+      run: |
+        pytest tests/performance/ --benchmark-only --benchmark-json output.json
+
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Python Benchmark
+        tool: 'pytest'
+        output-file-path: output.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        alert-threshold: '200%'
+        comment-on-alert: true
+        fail-on-alert: true 

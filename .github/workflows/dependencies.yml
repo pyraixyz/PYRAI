@@ -1,0 +1,46 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly
+  workflow_dispatch:
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-tools safety
+
+    - name: Update dependencies
+      run: |
+        pip-compile --upgrade requirements.in
+        pip-compile --upgrade requirements-dev.in
+
+    - name: Run security check
+      run: safety check
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: Update dependencies
+        title: 'chore: Update dependencies'
+        body: |
+          Automated dependency updates.
+          
+          - Updated requirements.txt
+          - Updated requirements-dev.txt
+          - Ran security checks
+        branch: update-dependencies
+        delete-branch: true
+        labels: dependencies 
