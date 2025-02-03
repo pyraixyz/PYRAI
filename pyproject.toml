@@ -40,7 +40,7 @@ structlog = "^23.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
-pytest-asyncio = "^0.21.1"
+pytest-asyncio = "^0.23.8"
 pytest-cov = "^4.1.0"
 httpx = "^0.25.1"
 ruff = "^0.1.4"
