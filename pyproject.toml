@@ -57,7 +57,7 @@ mkdocs-git-revision-date-localized-plugin = "^1.2.0"
 mkdocs-minify-plugin = "^0.7.1"
 
 [tool.poetry.group.test.dependencies]
-pytest-benchmark = "^4.0.0"
+pytest-benchmark = "^5.0.1"
 pytest-mock = "^3.11.1"
 pytest-xdist = "^3.3.1"
 faker = "^19.2.0"
