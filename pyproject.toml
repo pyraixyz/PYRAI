@@ -30,7 +30,7 @@ sqlalchemy = "^2.0.23"
 alembic = "^1.12.1"
 asyncpg = "^0.29.0"
 redis = "^5.0.1"
-prometheus-client = "^0.18.0"
+prometheus-client = "^0.21.1"
 pydantic = "^2.4.2"
 pydantic-settings = "^2.0.3"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
