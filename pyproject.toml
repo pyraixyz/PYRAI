@@ -47,7 +47,7 @@ ruff = "^0.1.4"
 mypy = "^1.6.1"
 black = "^23.10.1"
 bandit = "^1.7.5"
-safety = "^2.3.5"
+safety = "^3.2.14"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.5.2"
