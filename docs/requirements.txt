@@ -12,5 +12,5 @@ mkdocs-material==9.1.21
 mkdocstrings[python]==0.22.0
 mkdocs-git-revision-date-localized-plugin==1.2.0
 mkdocs-minify-plugin==0.7.1
-pymdown-extensions==10.1
+pymdown-extensions==10.14.3
 pygments==2.16.1 
