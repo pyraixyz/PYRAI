@@ -2,51 +2,59 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box,
+  Typography,
   Card,
   CardContent,
-  Typography,
-  Paper,
   Stack,
   Button,
-  TextField,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Tooltip,
+  TextField,
+  Alert,
+  Snackbar,
+  LinearProgress,
+  Tabs,
+  Tab,
+  Paper,
   List,
   ListItem,
   ListItemText,
   ListItemIcon,
   ListItemSecondaryAction,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Divider,
-  Alert,
-  Snackbar,
-  Tooltip,
-  Tab,
-  Tabs,
+  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Delete as DeleteIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
+  Save as SaveIcon,
   Description as DocIcon,
-  Upload as UploadIcon,
+  Code as CodeIcon,
+  Api as ApiIcon,
+  Link as LinkIcon,
+  CloudUpload as UploadIcon,
   Download as DownloadIcon,
   Preview as PreviewIcon,
-  Save as SaveIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { materialLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { modelApi } from '@/api/client';
 
 interface Document {
   id: string;
   title: string;
   content: string;
-  type: 'markdown' | 'pdf' | 'image';
+  type: 'guide' | 'api' | 'example';
   created_at: string;
   updated_at: string;
   created_by: {
@@ -58,9 +66,21 @@ interface Document {
 interface DocumentDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: Partial<Document>) => void;
   document?: Document;
 }
+
+interface DocumentHistoryDialogProps {
+  open: boolean;
+  onClose: () => void;
+  document: Document;
+}
+
+const DOCUMENT_TYPES = [
+  { label: 'User Guide', value: 'guide', icon: <DocIcon /> },
+  { label: 'API Reference', value: 'api', icon: <ApiIcon /> },
+  { label: 'Code Example', value: 'example', icon: <CodeIcon /> },
+];
 
 function DocumentDialog({
   open,
@@ -72,10 +92,10 @@ function DocumentDialog({
     document || {
       title: '',
       content: '',
-      type: 'markdown',
+      type: 'guide',
     }
   );
-  const [previewMode, setPreviewMode] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   const handleSave = () => {
     onSave(formData);
@@ -86,50 +106,112 @@ function DocumentDialog({
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
       <DialogTitle>
         {document ? 'Edit Document' : 'Create Document'}
-        {formData.type === 'markdown' && (
-          <Button
-            sx={{ float: 'right' }}
-            onClick={() => setPreviewMode(!previewMode)}
-            startIcon={previewMode ? <EditIcon /> : <PreviewIcon />}
-          >
-            {previewMode ? 'Edit' : 'Preview'}
-          </Button>
-        )}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          <TextField
-            label="Title"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            fullWidth
-            required
-          />
-
-          {formData.type === 'markdown' && !previewMode && (
+          <Stack direction="row" spacing={2}>
             <TextField
-              label="Content"
-              value={formData.content}
+              label="Title"
+              value={formData.title}
               onChange={(e) =>
-                setFormData({ ...formData, content: e.target.value })
+                setFormData({ ...formData, title: e.target.value })
               }
-              multiline
-              rows={20}
               fullWidth
               required
             />
-          )}
-
-          {formData.type === 'markdown' && previewMode && (
-            <Paper
-              variant="outlined"
-              sx={{ p: 2, minHeight: '500px', overflow: 'auto' }}
+            <TextField
+              select
+              label="Type"
+              value={formData.type}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  type: e.target.value as Document['type'],
+                })
+              }
+              sx={{ width: 200 }}
+              SelectProps={{
+                renderValue: (value) => (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    {DOCUMENT_TYPES.find((t) => t.value === value)?.icon}
+                    <Typography>
+                      {DOCUMENT_TYPES.find((t) => t.value === value)?.label}
+                    </Typography>
+                  </Stack>
+                ),
+              }}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {formData.content}
-              </ReactMarkdown>
-            </Paper>
-          )}
+              {DOCUMENT_TYPES.map((type) => (
+                <MenuItem key={type.value} value={type.value}>
+                  <ListItemIcon>{type.icon}</ListItemIcon>
+                  <ListItemText>{type.label}</ListItemText>
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+
+          <Stack spacing={2}>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <Typography variant="subtitle2" color="text.secondary">
+                Content
+              </Typography>
+              <Button
+                size="small"
+                startIcon={preview ? <EditIcon /> : <PreviewIcon />}
+                onClick={() => setPreview(!preview)}
+              >
+                {preview ? 'Edit' : 'Preview'}
+              </Button>
+            </Stack>
+
+            {preview ? (
+              <Paper
+                variant="outlined"
+                sx={{ p: 2, minHeight: 400, overflow: 'auto' }}
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({ node, inline, className, children, ...props }) {
+                      const match = /language-(\w+)/.exec(className || '');
+                      return !inline && match ? (
+                        <SyntaxHighlighter
+                          style={materialLight}
+                          language={match[1]}
+                          PreTag="div"
+                          {...props}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      );
+                    },
+                  }}
+                >
+                  {formData.content}
+                </ReactMarkdown>
+              </Paper>
+            ) : (
+              <TextField
+                multiline
+                rows={15}
+                value={formData.content}
+                onChange={(e) =>
+                  setFormData({ ...formData, content: e.target.value })
+                }
+                fullWidth
+                placeholder="Write your document in Markdown format..."
+              />
+            )}
+          </Stack>
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -139,41 +221,75 @@ function DocumentDialog({
           variant="contained"
           disabled={!formData.title || !formData.content}
         >
-          Save
+          {document ? 'Update' : 'Create'}
         </Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+function DocumentHistoryDialog({
+  open,
+  onClose,
+  document,
+}: DocumentHistoryDialogProps) {
+  const { modelId } = useParams<{ modelId: string }>();
+  const { data: history, isLoading } = useQuery({
+    queryKey: ['model', modelId, 'document', document.id, 'history'],
+    queryFn: () => modelApi.getDocumentHistory(modelId!, document.id),
+    enabled: !!modelId && !!document.id,
+  });
 
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`docs-tabpanel-${index}`}
-      aria-labelledby={`docs-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>Document History</DialogTitle>
+      <DialogContent>
+        {isLoading ? (
+          <LinearProgress />
+        ) : (
+          <List>
+            {history?.map((version, index) => (
+              <React.Fragment key={version.id}>
+                <ListItem>
+                  <ListItemIcon>
+                    <HistoryIcon color="action" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={format(new Date(version.created_at), 'PPpp')}
+                    secondary={`Updated by ${version.created_by.name}`}
+                  />
+                  <ListItemSecondaryAction>
+                    <Button
+                      size="small"
+                      startIcon={<PreviewIcon />}
+                      onClick={() => {
+                        // TODO: Show version diff
+                      }}
+                    >
+                      View Changes
+                    </Button>
+                  </ListItemSecondaryAction>
+                </ListItem>
+                {index < history.length - 1 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
 export default function ModelDocs() {
   const { modelId } = useParams<{ modelId: string }>();
   const queryClient = useQueryClient();
-  const [tabValue, setTabValue] = useState(0);
+  const [selectedType, setSelectedType] = useState<Document['type']>('guide');
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<Document | undefined>();
+  const [selectedDocument, setSelectedDocument] = useState<Document>();
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [severity, setSeverity] = useState<'success' | 'error'>('success');
 
@@ -185,15 +301,19 @@ export default function ModelDocs() {
   });
 
   // Fetch documents
-  const { data: documents } = useQuery({
-    queryKey: ['model', modelId, 'documents'],
-    queryFn: () => modelApi.getDocuments(modelId!),
+  const { data: documents, isLoading } = useQuery({
+    queryKey: ['model', modelId, 'documents', selectedType],
+    queryFn: () =>
+      modelApi.getModelDocuments(modelId!, {
+        type: selectedType,
+      }),
     enabled: !!modelId,
   });
 
   // Create document mutation
   const { mutate: createDocument } = useMutation({
-    mutationFn: (data: any) => modelApi.createDocument(modelId!, data),
+    mutationFn: (data: Partial<Document>) =>
+      modelApi.createModelDocument(modelId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['model', modelId, 'documents']);
       setMessage('Document created successfully');
@@ -207,8 +327,8 @@ export default function ModelDocs() {
 
   // Update document mutation
   const { mutate: updateDocument } = useMutation({
-    mutationFn: (data: any) =>
-      modelApi.updateDocument(modelId!, data.id, data),
+    mutationFn: (data: Partial<Document>) =>
+      modelApi.updateModelDocument(modelId!, data.id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['model', modelId, 'documents']);
       setMessage('Document updated successfully');
@@ -223,7 +343,7 @@ export default function ModelDocs() {
   // Delete document mutation
   const { mutate: deleteDocument } = useMutation({
     mutationFn: (documentId: string) =>
-      modelApi.deleteDocument(modelId!, documentId),
+      modelApi.deleteModelDocument(modelId!, documentId),
     onSuccess: () => {
       queryClient.invalidateQueries(['model', modelId, 'documents']);
       setMessage('Document deleted successfully');
@@ -235,89 +355,120 @@ export default function ModelDocs() {
     },
   });
 
-  if (!model || !documents) {
+  if (!model || (!documents && !isLoading)) {
     return null;
   }
 
-  const handleSaveDocument = (data: any) => {
+  const handleDocumentSave = (data: Partial<Document>) => {
     if (selectedDocument) {
       updateDocument({ ...data, id: selectedDocument.id });
     } else {
       createDocument(data);
     }
+    setDocumentDialogOpen(false);
+    setSelectedDocument(undefined);
   };
 
-  const handleDeleteDocument = (documentId: string) => {
-    if (confirm('Are you sure you want to delete this document?')) {
+  const handleDocumentDelete = (documentId: string) => {
+    if (
+      confirm(
+        'Are you sure you want to delete this document? This action cannot be undone.'
+      )
+    ) {
       deleteDocument(documentId);
     }
   };
-
-  const markdownDocs = documents.filter((doc) => doc.type === 'markdown');
-  const otherDocs = documents.filter((doc) => doc.type !== 'markdown');
 
   return (
     <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" gutterBottom>
-          Model Documentation
+          Documentation
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Manage documentation for {model.name}
+          Manage documentation and API references for {model.name}
         </Typography>
       </Box>
 
       {/* Content */}
-      <Card>
-        <CardContent>
-          <Stack spacing={3}>
-            <Stack
-              direction="row"
-              spacing={2}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <Tabs
-                value={tabValue}
-                onChange={(_, newValue) => setTabValue(newValue)}
-                aria-label="documentation tabs"
-              >
-                <Tab label="Documentation" />
-                <Tab label="Files" />
-              </Tabs>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setSelectedDocument(undefined);
-                  setDocumentDialogOpen(true);
-                }}
-              >
-                Add Document
-              </Button>
-            </Stack>
+      <Stack spacing={3}>
+        {/* Document Type Tabs */}
+        <Paper variant="outlined">
+          <Tabs
+            value={selectedType}
+            onChange={(e, value) => setSelectedType(value)}
+            variant="fullWidth"
+          >
+            {DOCUMENT_TYPES.map((type) => (
+              <Tab
+                key={type.value}
+                value={type.value}
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    {type.icon}
+                    <Typography>{type.label}</Typography>
+                  </Stack>
+                }
+              />
+            ))}
+          </Tabs>
+        </Paper>
 
-            <TabPanel value={tabValue} index={0}>
-              <List>
-                {markdownDocs.map((doc) => (
-                  <div key={doc.id}>
-                    <ListItem>
-                      <ListItemIcon>
-                        <DocIcon />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={doc.title}
-                        secondary={`Last updated ${format(
-                          new Date(doc.updated_at),
-                          'yyyy-MM-dd HH:mm'
-                        )} by ${doc.created_by.name}`}
-                      />
-                      <ListItemSecondaryAction>
+        {/* Document List */}
+        <Stack spacing={2}>
+          <Stack
+            direction="row"
+            spacing={2}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">
+              {DOCUMENT_TYPES.find((t) => t.value === selectedType)?.label}s
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setSelectedDocument(undefined);
+                setDocumentDialogOpen(true);
+              }}
+            >
+              Add Document
+            </Button>
+          </Stack>
+
+          {isLoading ? (
+            <LinearProgress />
+          ) : (
+            <Stack spacing={2}>
+              {documents?.map((doc) => (
+                <Card key={doc.id} variant="outlined">
+                  <CardContent>
+                    <Stack spacing={2}>
+                      <Stack
+                        direction="row"
+                        spacing={2}
+                        alignItems="center"
+                        justifyContent="space-between"
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          {DOCUMENT_TYPES.find((t) => t.value === doc.type)?.icon}
+                          <Typography variant="h6">{doc.title}</Typography>
+                        </Stack>
                         <Stack direction="row" spacing={1}>
+                          <Tooltip title="View History">
+                            <IconButton
+                              onClick={() => {
+                                setSelectedDocument(doc);
+                                setHistoryDialogOpen(true);
+                              }}
+                            >
+                              <HistoryIcon />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title="Edit">
                             <IconButton
-                              edge="end"
                               onClick={() => {
                                 setSelectedDocument(doc);
                                 setDocumentDialogOpen(true);
@@ -328,64 +479,82 @@ export default function ModelDocs() {
                           </Tooltip>
                           <Tooltip title="Delete">
                             <IconButton
-                              edge="end"
                               color="error"
-                              onClick={() => handleDeleteDocument(doc.id)}
+                              onClick={() => handleDocumentDelete(doc.id)}
                             >
                               <DeleteIcon />
                             </IconButton>
                           </Tooltip>
                         </Stack>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                    <Divider />
-                  </div>
-                ))}
-              </List>
-            </TabPanel>
+                      </Stack>
 
-            <TabPanel value={tabValue} index={1}>
-              <List>
-                {otherDocs.map((doc) => (
-                  <div key={doc.id}>
-                    <ListItem>
-                      <ListItemIcon>
-                        <DocIcon />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={doc.title}
-                        secondary={`Last updated ${format(
-                          new Date(doc.updated_at),
-                          'yyyy-MM-dd HH:mm'
-                        )} by ${doc.created_by.name}`}
-                      />
-                      <ListItemSecondaryAction>
+                      <Paper variant="outlined" sx={{ p: 2 }}>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            code({ node, inline, className, children, ...props }) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <SyntaxHighlighter
+                                  style={materialLight}
+                                  language={match[1]}
+                                  PreTag="div"
+                                  {...props}
+                                >
+                                  {String(children).replace(/\n$/, '')}
+                                </SyntaxHighlighter>
+                              ) : (
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            },
+                          }}
+                        >
+                          {doc.content}
+                        </ReactMarkdown>
+                      </Paper>
+
+                      <Stack
+                        direction="row"
+                        spacing={2}
+                        alignItems="center"
+                        justifyContent="space-between"
+                      >
+                        <Typography variant="caption" color="text.secondary">
+                          Last updated{' '}
+                          {format(new Date(doc.updated_at), 'PPp')} by{' '}
+                          {doc.created_by.name}
+                        </Typography>
                         <Stack direction="row" spacing={1}>
-                          <Tooltip title="Download">
-                            <IconButton edge="end">
-                              <DownloadIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              edge="end"
-                              color="error"
-                              onClick={() => handleDeleteDocument(doc.id)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
+                          <Button
+                            size="small"
+                            startIcon={<DownloadIcon />}
+                            onClick={() => {
+                              // TODO: Download document
+                            }}
+                          >
+                            Download
+                          </Button>
+                          <Button
+                            size="small"
+                            startIcon={<LinkIcon />}
+                            onClick={() => {
+                              // TODO: Copy document link
+                            }}
+                          >
+                            Share
+                          </Button>
                         </Stack>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                    <Divider />
-                  </div>
-                ))}
-              </List>
-            </TabPanel>
-          </Stack>
-        </CardContent>
-      </Card>
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      </Stack>
 
       {/* Document Dialog */}
       <DocumentDialog
@@ -394,9 +563,21 @@ export default function ModelDocs() {
           setDocumentDialogOpen(false);
           setSelectedDocument(undefined);
         }}
-        onSave={handleSaveDocument}
+        onSave={handleDocumentSave}
         document={selectedDocument}
       />
+
+      {/* History Dialog */}
+      {selectedDocument && (
+        <DocumentHistoryDialog
+          open={historyDialogOpen}
+          onClose={() => {
+            setHistoryDialogOpen(false);
+            setSelectedDocument(undefined);
+          }}
+          document={selectedDocument}
+        />
+      )}
 
       {/* Message Snackbar */}
       <Snackbar

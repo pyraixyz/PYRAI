@@ -37,34 +37,37 @@ ENV/
 # Logs and databases
 *.log
 *.sqlite
-*.db
-
-# Model artifacts
-models/
-checkpoints/
+logs/
 runs/
+
+# Model files
+*.pt
 *.pth
-*.h5
 *.onnx
-*.pkl
+*.h5
+models/
 
-# Deployment
-.env
-*.env
-kubernetes/secrets/
-builds/
-
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
-.tox/
+# Data
+data/
+datasets/
+*.csv
+*.json
+*.npy
+*.npz
 
 # Documentation
 docs/_build/
-site/
+docs/generated/
 
-# Temporary files
-*.tmp
+# Test coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# OS
 .DS_Store
 Thumbs.db 

@@ -2,42 +2,42 @@ name: Auto Release
 
 on:
   push:
-    branches: [ main ]
+    tags:
+      - 'v*'
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'chore')"
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
-        fetch-depth: 0
-
-    - name: Get latest version
-      id: version
+        python-version: "3.10"
+        
+    - name: Install dependencies
       run: |
-        VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-        echo "::set-output name=version::$VERSION"
-
-    - name: Bump version
-      id: bump_version
-      uses: anothrNick/github-tag-action@1.36.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        WITH_V: true
-        DEFAULT_BUMP: patch
-        RELEASE_BRANCHES: main
-
+        python -m pip install --upgrade pip
+        pip install build twine
+        
+    - name: Build package
+      run: python -m build
+      
     - name: Create Release
-      if: steps.bump_version.outputs.new_tag != steps.version.outputs.version
+      id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.bump_version.outputs.new_tag }}
-        release_name: Release ${{ steps.bump_version.outputs.new_tag }}
-        body: |
-          Changes in this Release:
-          ${{ github.event.head_commit.message }}
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
         draft: false
-        prerelease: false 
+        prerelease: false
+        
+    - name: Upload to PyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      run: |
+        twine upload dist/* 

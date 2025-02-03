@@ -26,6 +26,13 @@ import {
   Alert,
   Snackbar,
   Divider,
+  Grid,
+  IconButton,
+  Tooltip,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -34,6 +41,14 @@ import {
   Security as SecurityIcon,
   Notifications as NotificationsIcon,
   Storage as StorageIcon,
+  Refresh as RefreshIcon,
+  History as HistoryIcon,
+  Edit as EditIcon,
+  Add as AddIcon,
+  CloudUpload as UploadIcon,
+  CloudDownload as DownloadIcon,
+  Speed as PerformanceIcon,
+  Memory as ResourceIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelApi } from '@/api/client';
@@ -109,6 +124,67 @@ function DeleteModelDialog({
   );
 }
 
+interface ModelSettings {
+  general: {
+    name: string;
+    description: string;
+    version: string;
+    status: 'active' | 'inactive' | 'archived';
+    visibility: 'public' | 'private' | 'organization';
+    tags: string[];
+  };
+  deployment: {
+    environment: 'development' | 'staging' | 'production';
+    replicas: number;
+    auto_scaling: boolean;
+    min_replicas: number;
+    max_replicas: number;
+    cpu_target: number;
+    memory_target: number;
+  };
+  performance: {
+    batch_size: number;
+    timeout: number;
+    max_concurrent_requests: number;
+    cache_enabled: boolean;
+    cache_ttl: number;
+  };
+  security: {
+    authentication_required: boolean;
+    rate_limiting: boolean;
+    requests_per_minute: number;
+    ip_whitelist: string[];
+    token_expiration: number;
+  };
+  monitoring: {
+    logging_level: 'debug' | 'info' | 'warning' | 'error';
+    metrics_enabled: boolean;
+    alert_enabled: boolean;
+    alert_threshold: number;
+    notification_channels: string[];
+  };
+}
+
+interface SettingsSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function SettingsSection({ title, icon, children }: SettingsSectionProps) {
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Stack spacing={3}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Box sx={{ color: 'primary.main' }}>{icon}</Box>
+          <Typography variant="h6">{title}</Typography>
+        </Stack>
+        {children}
+      </Stack>
+    </Paper>
+  );
+}
+
 export default function ModelSettings() {
   const { modelId } = useParams<{ modelId: string }>();
   const navigate = useNavigate();
@@ -117,6 +193,7 @@ export default function ModelSettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [severity, setSeverity] = useState<'success' | 'error'>('success');
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
   // Fetch model
   const { data: model } = useQuery({
@@ -125,11 +202,18 @@ export default function ModelSettings() {
     enabled: !!modelId,
   });
 
+  // Fetch model settings
+  const { data: settings } = useQuery({
+    queryKey: ['model', modelId, 'settings'],
+    queryFn: () => modelApi.getModelSettings(modelId!),
+    enabled: !!modelId,
+  });
+
   // Update model settings mutation
   const { mutate: updateSettings } = useMutation({
-    mutationFn: (data: any) => modelApi.updateSettings(modelId!, data),
+    mutationFn: (data: ModelSettings) => modelApi.updateModelSettings(modelId!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['model', modelId]);
+      queryClient.invalidateQueries(['model', modelId, 'settings']);
       setMessage('Settings updated successfully');
       setSeverity('success');
     },
@@ -155,14 +239,20 @@ export default function ModelSettings() {
     return null;
   }
 
+  const handleSave = () => {
+    updateSettings(settings);
+  };
+
   const handleSaveBasicSettings = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     updateSettings({
-      name: formData.get('name'),
-      description: formData.get('description'),
-      visibility: formData.get('visibility'),
-      tags: formData.get('tags')?.toString().split(',').map((tag) => tag.trim()),
+      general: {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        visibility: formData.get('visibility'),
+        tags: formData.get('tags')?.toString().split(',').map((tag) => tag.trim()),
+      },
     });
   };
 
@@ -172,10 +262,13 @@ export default function ModelSettings() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     updateSettings({
-      cache_enabled: formData.get('cache_enabled') === 'true',
-      cache_ttl: parseInt(formData.get('cache_ttl') as string),
-      max_batch_size: parseInt(formData.get('max_batch_size') as string),
-      timeout: parseInt(formData.get('timeout') as string),
+      performance: {
+        batch_size: parseInt(formData.get('batch_size') as string),
+        timeout: parseInt(formData.get('timeout') as string),
+        max_concurrent_requests: parseInt(formData.get('max_concurrent_requests') as string),
+        cache_enabled: formData.get('cache_enabled') === 'true',
+        cache_ttl: parseInt(formData.get('cache_ttl') as string),
+      },
     });
   };
 
@@ -198,6 +291,23 @@ export default function ModelSettings() {
     });
   };
 
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string);
+          updateSettings(data);
+        } catch (error) {
+          setMessage('Invalid settings file');
+          setSeverity('error');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
   return (
     <Box>
       {/* Header */}
@@ -206,9 +316,67 @@ export default function ModelSettings() {
           Model Settings
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Configure settings for {model.name}
+          Configure and manage settings for {model.name}
         </Typography>
       </Box>
+
+      {/* Actions */}
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 3 }}
+      >
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+          >
+            Save Changes
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<HistoryIcon />}
+            onClick={() => setHistoryDialogOpen(true)}
+          >
+            View History
+          </Button>
+        </Stack>
+
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={() => modelApi.exportModelSettings(modelId!)}
+          >
+            Export
+          </Button>
+          <Button
+            variant="outlined"
+            component="label"
+            startIcon={<UploadIcon />}
+          >
+            Import
+            <input
+              type="file"
+              hidden
+              accept=".json"
+              onChange={handleImport}
+            />
+          </Button>
+          <Tooltip title="Refresh">
+            <IconButton
+              onClick={() =>
+                queryClient.invalidateQueries(['model', modelId, 'settings'])
+              }
+            >
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Stack>
 
       {/* Content */}
       <Card>
@@ -456,6 +624,35 @@ export default function ModelSettings() {
         }}
         modelName={model.name}
       />
+
+      {/* Settings History Dialog */}
+      <Dialog
+        open={historyDialogOpen}
+        onClose={() => setHistoryDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Settings History</DialogTitle>
+        <DialogContent>
+          <List>
+            {/* This would be populated with actual history data */}
+            <ListItem>
+              <ListItemText
+                primary="Settings updated"
+                secondary="2024-01-01 12:00:00"
+              />
+              <ListItemSecondaryAction>
+                <IconButton edge="end" aria-label="restore">
+                  <HistoryIcon />
+                </IconButton>
+              </ListItemSecondaryAction>
+            </ListItem>
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHistoryDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Message Snackbar */}
       <Snackbar

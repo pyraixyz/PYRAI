@@ -1,0 +1,60 @@
+# Deployment Configuration
+model:
+  model_id: my_model
+  version: v1
+  description: Production model deployment
+
+# Resource Requirements
+resources:
+  cpu: "1"
+  memory: "2Gi"
+  gpu: "1"
+  storage: "10Gi"
+
+# Scaling Configuration
+scaling:
+  min_replicas: 1
+  max_replicas: 3
+  target_cpu_utilization: 80
+  target_memory_utilization: 80
+  cooldown_period: 300
+
+# Networking
+networking:
+  port: 8000
+  protocol: http
+  path: /predict
+  timeout: 30
+  max_connections: 100
+
+# Security
+security:
+  authentication: true
+  ssl_enabled: true
+  cors_origins:
+    - https://api.example.com
+  rate_limit:
+    requests_per_second: 100
+
+# Monitoring
+monitoring:
+  metrics_enabled: true
+  logging_enabled: true
+  tracing_enabled: false
+  prometheus:
+    port: 9090
+  grafana:
+    enabled: true
+
+# Health Checks
+health_check:
+  readiness:
+    path: /health
+    initial_delay: 10
+    period: 30
+    timeout: 5
+  liveness:
+    path: /health/live
+    initial_delay: 30
+    period: 60
+    timeout: 5 

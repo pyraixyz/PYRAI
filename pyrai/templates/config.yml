@@ -1,0 +1,51 @@
+# Training Configuration
+training:
+  # Basic parameters
+  batch_size: 32
+  epochs: 10
+  validation_split: 0.2
+  
+  # Optimizer settings
+  optimizer:
+    type: adam
+    lr: 0.001
+    weight_decay: 1e-5
+  
+  # Learning rate scheduler
+  scheduler:
+    type: cosine
+    T_max: 100
+    eta_min: 0.0001
+  
+  # Loss function
+  loss: cross_entropy
+  
+  # Metrics to track
+  metrics:
+    - accuracy
+    - f1_score
+
+# Model Configuration
+model:
+  # Backend selection
+  backend: pytorch
+  device: cuda
+  
+  # Precision settings
+  precision: float32
+  mixed_precision: false
+  
+  # Checkpointing
+  save_best: true
+  checkpoint_dir: checkpoints/
+  
+  # Logging
+  log_dir: logs/
+  tensorboard: true
+
+# Distributed Training
+distributed:
+  enabled: false
+  backend: nccl
+  world_size: 1
+  init_method: tcp://localhost:23456 

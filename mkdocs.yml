@@ -1,0 +1,56 @@
+site_name: PyRAI Documentation
+site_description: Python Reinforcement AI Engine Documentation
+site_author: PyRAI Team
+repo_url: https://github.com/username/pyrai
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+  - User Guide:
+    - Core Concepts: user-guide/concepts.md
+    - Configuration: user-guide/configuration.md
+    - Training: user-guide/training.md
+    - Deployment: user-guide/deployment.md
+    - Monitoring: user-guide/monitoring.md
+  - API Reference:
+    - Core: api/core.md
+    - Backends: api/backends.md
+    - Distributed: api/distributed.md
+    - Deployment: api/deployment.md
+  - Development:
+    - Contributing: development/contributing.md
+    - Testing: development/testing.md
+    - Release Process: development/releasing.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          rendering:
+            show_source: true
+            show_root_heading: true 

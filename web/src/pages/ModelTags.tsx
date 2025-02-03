@@ -2,70 +2,119 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
-  Paper,
+  Grid,
   Stack,
   Button,
+  Paper,
   TextField,
-  Chip,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Alert,
   Snackbar,
-  Grid,
+  IconButton,
   Tooltip,
+  Card,
+  CardContent,
   Autocomplete,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Label as LabelIcon,
+  Refresh as RefreshIcon,
+  Label as TagIcon,
   Category as CategoryIcon,
-  Save as SaveIcon,
+  LocalOffer as OfferIcon,
+  Bookmark as BookmarkIcon,
+  ColorLens as ColorIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { modelApi } from '@/api/client';
 
 interface Tag {
   id: string;
   name: string;
-  color: string;
   category: string;
+  color?: string;
   description?: string;
   created_at: string;
+  updated_at: string;
+  created_by: {
+    id: string;
+    name: string;
+  };
 }
 
 interface Category {
   id: string;
   name: string;
   description?: string;
+  color?: string;
+  tag_count: number;
   created_at: string;
+  updated_at: string;
 }
 
 interface TagDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: Partial<Tag>) => void;
   tag?: Tag;
   categories: Category[];
 }
 
-function TagDialog({ open, onClose, onSave, tag, categories }: TagDialogProps) {
+interface CategoryDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (data: Partial<Category>) => void;
+  category?: Category;
+}
+
+const COLORS = [
+  '#f44336',
+  '#e91e63',
+  '#9c27b0',
+  '#673ab7',
+  '#3f51b5',
+  '#2196f3',
+  '#03a9f4',
+  '#00bcd4',
+  '#009688',
+  '#4caf50',
+  '#8bc34a',
+  '#cddc39',
+  '#ffeb3b',
+  '#ffc107',
+  '#ff9800',
+  '#ff5722',
+];
+
+function TagDialog({
+  open,
+  onClose,
+  onSave,
+  tag,
+  categories,
+}: TagDialogProps) {
   const [formData, setFormData] = useState(
     tag || {
       name: '',
-      color: '#1976d2',
       category: '',
+      color: COLORS[0],
       description: '',
     }
   );
@@ -81,9 +130,11 @@ function TagDialog({ open, onClose, onSave, tag, categories }: TagDialogProps) {
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           <TextField
-            label="Tag Name"
+            label="Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, name: e.target.value })
+            }
             fullWidth
             required
           />
@@ -106,14 +157,6 @@ function TagDialog({ open, onClose, onSave, tag, categories }: TagDialogProps) {
           </FormControl>
 
           <TextField
-            label="Color"
-            type="color"
-            value={formData.color}
-            onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-            fullWidth
-          />
-
-          <TextField
             label="Description"
             value={formData.description}
             onChange={(e) =>
@@ -123,6 +166,46 @@ function TagDialog({ open, onClose, onSave, tag, categories }: TagDialogProps) {
             rows={3}
             fullWidth
           />
+
+          <FormControl fullWidth>
+            <InputLabel>Color</InputLabel>
+            <Select
+              value={formData.color}
+              label="Color"
+              onChange={(e) =>
+                setFormData({ ...formData, color: e.target.value })
+              }
+              renderValue={(color) => (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 1,
+                      bgcolor: color,
+                      mr: 1,
+                    }}
+                  />
+                  {color}
+                </Box>
+              )}
+            >
+              {COLORS.map((color) => (
+                <MenuItem key={color} value={color}>
+                  <Box
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 1,
+                      bgcolor: color,
+                      mr: 1,
+                    }}
+                  />
+                  {color}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -132,18 +215,11 @@ function TagDialog({ open, onClose, onSave, tag, categories }: TagDialogProps) {
           variant="contained"
           disabled={!formData.name || !formData.category}
         >
-          Save
+          {tag ? 'Update' : 'Create'}
         </Button>
       </DialogActions>
     </Dialog>
   );
-}
-
-interface CategoryDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSave: (data: any) => void;
-  category?: Category;
 }
 
 function CategoryDialog({
@@ -156,6 +232,7 @@ function CategoryDialog({
     category || {
       name: '',
       description: '',
+      color: COLORS[0],
     }
   );
 
@@ -166,13 +243,17 @@ function CategoryDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{category ? 'Edit Category' : 'Create Category'}</DialogTitle>
+      <DialogTitle>
+        {category ? 'Edit Category' : 'Create Category'}
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           <TextField
-            label="Category Name"
+            label="Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, name: e.target.value })
+            }
             fullWidth
             required
           />
@@ -187,12 +268,56 @@ function CategoryDialog({
             rows={3}
             fullWidth
           />
+
+          <FormControl fullWidth>
+            <InputLabel>Color</InputLabel>
+            <Select
+              value={formData.color}
+              label="Color"
+              onChange={(e) =>
+                setFormData({ ...formData, color: e.target.value })
+              }
+              renderValue={(color) => (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 1,
+                      bgcolor: color,
+                      mr: 1,
+                    }}
+                  />
+                  {color}
+                </Box>
+              )}
+            >
+              {COLORS.map((color) => (
+                <MenuItem key={color} value={color}>
+                  <Box
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 1,
+                      bgcolor: color,
+                      mr: 1,
+                    }}
+                  />
+                  {color}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" disabled={!formData.name}>
-          Save
+        <Button
+          onClick={handleSave}
+          variant="contained"
+          disabled={!formData.name}
+        >
+          {category ? 'Update' : 'Create'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -203,9 +328,9 @@ export default function ModelTags() {
   const { modelId } = useParams<{ modelId: string }>();
   const queryClient = useQueryClient();
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [selectedTag, setSelectedTag] = useState<Tag>();
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [selectedTag, setSelectedTag] = useState<Tag | undefined>();
-  const [selectedCategory, setSelectedCategory] = useState<Category | undefined>();
+  const [selectedCategory, setSelectedCategory] = useState<Category>();
   const [message, setMessage] = useState<string>('');
   const [severity, setSeverity] = useState<'success' | 'error'>('success');
 
@@ -219,19 +344,21 @@ export default function ModelTags() {
   // Fetch tags
   const { data: tags } = useQuery({
     queryKey: ['model', modelId, 'tags'],
-    queryFn: () => modelApi.getTags(modelId!),
+    queryFn: () => modelApi.getModelTags(modelId!),
     enabled: !!modelId,
   });
 
   // Fetch categories
   const { data: categories } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => modelApi.getCategories(),
+    queryKey: ['model', modelId, 'categories'],
+    queryFn: () => modelApi.getModelCategories(modelId!),
+    enabled: !!modelId,
   });
 
   // Create tag mutation
   const { mutate: createTag } = useMutation({
-    mutationFn: (data: any) => modelApi.createTag(modelId!, data),
+    mutationFn: (data: Partial<Tag>) =>
+      modelApi.createModelTag(modelId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['model', modelId, 'tags']);
       setMessage('Tag created successfully');
@@ -245,7 +372,8 @@ export default function ModelTags() {
 
   // Update tag mutation
   const { mutate: updateTag } = useMutation({
-    mutationFn: (data: any) => modelApi.updateTag(modelId!, data.id, data),
+    mutationFn: (data: Partial<Tag>) =>
+      modelApi.updateModelTag(modelId!, data.id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['model', modelId, 'tags']);
       setMessage('Tag updated successfully');
@@ -259,7 +387,8 @@ export default function ModelTags() {
 
   // Delete tag mutation
   const { mutate: deleteTag } = useMutation({
-    mutationFn: (tagId: string) => modelApi.deleteTag(modelId!, tagId),
+    mutationFn: (tagId: string) =>
+      modelApi.deleteModelTag(modelId!, tagId),
     onSuccess: () => {
       queryClient.invalidateQueries(['model', modelId, 'tags']);
       setMessage('Tag deleted successfully');
@@ -273,9 +402,10 @@ export default function ModelTags() {
 
   // Create category mutation
   const { mutate: createCategory } = useMutation({
-    mutationFn: (data: any) => modelApi.createCategory(data),
+    mutationFn: (data: Partial<Category>) =>
+      modelApi.createModelCategory(modelId!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['categories']);
+      queryClient.invalidateQueries(['model', modelId, 'categories']);
       setMessage('Category created successfully');
       setSeverity('success');
     },
@@ -287,9 +417,10 @@ export default function ModelTags() {
 
   // Update category mutation
   const { mutate: updateCategory } = useMutation({
-    mutationFn: (data: any) => modelApi.updateCategory(data.id, data),
+    mutationFn: (data: Partial<Category>) =>
+      modelApi.updateModelCategory(modelId!, data.id!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['categories']);
+      queryClient.invalidateQueries(['model', modelId, 'categories']);
       setMessage('Category updated successfully');
       setSeverity('success');
     },
@@ -301,9 +432,10 @@ export default function ModelTags() {
 
   // Delete category mutation
   const { mutate: deleteCategory } = useMutation({
-    mutationFn: (categoryId: string) => modelApi.deleteCategory(categoryId),
+    mutationFn: (categoryId: string) =>
+      modelApi.deleteModelCategory(modelId!, categoryId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['categories']);
+      queryClient.invalidateQueries(['model', modelId, 'categories']);
       setMessage('Category deleted successfully');
       setSeverity('success');
     },
@@ -317,30 +449,42 @@ export default function ModelTags() {
     return null;
   }
 
-  const handleSaveTag = (data: any) => {
+  const handleTagSave = (data: Partial<Tag>) => {
     if (selectedTag) {
       updateTag({ ...data, id: selectedTag.id });
     } else {
       createTag(data);
     }
+    setTagDialogOpen(false);
+    setSelectedTag(undefined);
   };
 
-  const handleDeleteTag = (tagId: string) => {
-    if (confirm('Are you sure you want to delete this tag?')) {
+  const handleTagDelete = (tagId: string) => {
+    if (
+      confirm(
+        'Are you sure you want to delete this tag? This action cannot be undone.'
+      )
+    ) {
       deleteTag(tagId);
     }
   };
 
-  const handleSaveCategory = (data: any) => {
+  const handleCategorySave = (data: Partial<Category>) => {
     if (selectedCategory) {
       updateCategory({ ...data, id: selectedCategory.id });
     } else {
       createCategory(data);
     }
+    setCategoryDialogOpen(false);
+    setSelectedCategory(undefined);
   };
 
-  const handleDeleteCategory = (categoryId: string) => {
-    if (confirm('Are you sure you want to delete this category?')) {
+  const handleCategoryDelete = (categoryId: string) => {
+    if (
+      confirm(
+        'Are you sure you want to delete this category? This will also delete all tags in this category.'
+      )
+    ) {
       deleteCategory(categoryId);
     }
   };
@@ -350,191 +494,162 @@ export default function ModelTags() {
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" gutterBottom>
-          Model Tags
+          Tags & Categories
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Manage tags and categories for {model.name}
         </Typography>
       </Box>
 
-      {/* Categories Section */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stack spacing={3}>
-            <Stack
-              direction="row"
-              spacing={2}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <Typography variant="h6">Categories</Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setSelectedCategory(undefined);
-                  setCategoryDialogOpen(true);
-                }}
+      {/* Content */}
+      <Grid container spacing={3}>
+        {/* Categories */}
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ mb: 2 }}
               >
-                Add Category
-              </Button>
-            </Stack>
+                <Typography variant="h6">Categories</Typography>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setSelectedCategory(undefined);
+                    setCategoryDialogOpen(true);
+                  }}
+                >
+                  Add
+                </Button>
+              </Stack>
 
-            <Grid container spacing={2}>
-              {categories.map((category) => (
-                <Grid item xs={12} sm={6} md={4} key={category.id}>
-                  <Paper variant="outlined" sx={{ p: 2 }}>
-                    <Stack spacing={1}>
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        alignItems="center"
-                        justifyContent="space-between"
-                      >
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <CategoryIcon color="primary" />
-                          <Typography variant="subtitle1">
-                            {category.name}
-                          </Typography>
-                        </Stack>
+              <List>
+                {categories.map((category) => (
+                  <React.Fragment key={category.id}>
+                    <ListItem>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Box
+                              sx={{
+                                width: 16,
+                                height: 16,
+                                borderRadius: 1,
+                                bgcolor: category.color,
+                              }}
+                            />
+                            <Typography>{category.name}</Typography>
+                          </Stack>
+                        }
+                        secondary={`${category.tag_count} tags`}
+                      />
+                      <ListItemSecondaryAction>
                         <Stack direction="row" spacing={1}>
                           <Tooltip title="Edit">
                             <IconButton
-                              size="small"
+                              edge="end"
                               onClick={() => {
                                 setSelectedCategory(category);
                                 setCategoryDialogOpen(true);
                               }}
                             >
-                              <EditIcon fontSize="small" />
+                              <EditIcon />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Delete">
                             <IconButton
-                              size="small"
+                              edge="end"
                               color="error"
-                              onClick={() => handleDeleteCategory(category.id)}
+                              onClick={() => handleCategoryDelete(category.id)}
                             >
-                              <DeleteIcon fontSize="small" />
+                              <DeleteIcon />
                             </IconButton>
                           </Tooltip>
                         </Stack>
-                      </Stack>
-                      {category.description && (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                          }}
-                        >
-                          {category.description}
-                        </Typography>
-                      )}
-                    </Stack>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </Stack>
-        </CardContent>
-      </Card>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
 
-      {/* Tags Section */}
-      <Card>
-        <CardContent>
-          <Stack spacing={3}>
-            <Stack
-              direction="row"
-              spacing={2}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <Typography variant="h6">Tags</Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setSelectedTag(undefined);
-                  setTagDialogOpen(true);
-                }}
+        {/* Tags */}
+        <Grid item xs={12} md={8}>
+          <Card>
+            <CardContent>
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ mb: 2 }}
               >
-                Add Tag
-              </Button>
-            </Stack>
+                <Typography variant="h6">Tags</Typography>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => {
+                      setSelectedTag(undefined);
+                      setTagDialogOpen(true);
+                    }}
+                  >
+                    Add
+                  </Button>
+                  <Tooltip title="Refresh">
+                    <IconButton
+                      size="small"
+                      onClick={() =>
+                        queryClient.invalidateQueries([
+                          'model',
+                          modelId,
+                          'tags',
+                        ])
+                      }
+                    >
+                      <RefreshIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Stack>
 
-            <Grid container spacing={2}>
-              {tags.map((tag) => (
-                <Grid item xs={12} sm={6} md={4} key={tag.id}>
-                  <Paper variant="outlined" sx={{ p: 2 }}>
-                    <Stack spacing={1}>
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        alignItems="center"
-                        justifyContent="space-between"
-                      >
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <LabelIcon sx={{ color: tag.color }} />
-                          <Typography variant="subtitle1">{tag.name}</Typography>
-                        </Stack>
-                        <Stack direction="row" spacing={1}>
-                          <Tooltip title="Edit">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setSelectedTag(tag);
-                                setTagDialogOpen(true);
-                              }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteTag(tag.id)}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </Stack>
-                      <Chip
-                        label={
-                          categories.find((c) => c.id === tag.category)?.name ||
-                          'Uncategorized'
-                        }
-                        size="small"
-                      />
-                      {tag.description && (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                          }}
-                        >
-                          {tag.description}
-                        </Typography>
-                      )}
-                    </Stack>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </Stack>
-        </CardContent>
-      </Card>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {tags.map((tag) => {
+                  const category = categories.find(
+                    (c) => c.id === tag.category
+                  );
+                  return (
+                    <Chip
+                      key={tag.id}
+                      label={tag.name}
+                      sx={{
+                        bgcolor: tag.color,
+                        '& .MuiChip-deleteIcon': {
+                          color: 'inherit',
+                        },
+                      }}
+                      onDelete={() => handleTagDelete(tag.id)}
+                      onClick={() => {
+                        setSelectedTag(tag);
+                        setTagDialogOpen(true);
+                      }}
+                    />
+                  );
+                })}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Tag Dialog */}
       <TagDialog
@@ -543,7 +658,7 @@ export default function ModelTags() {
           setTagDialogOpen(false);
           setSelectedTag(undefined);
         }}
-        onSave={handleSaveTag}
+        onSave={handleTagSave}
         tag={selectedTag}
         categories={categories}
       />
@@ -555,7 +670,7 @@ export default function ModelTags() {
           setCategoryDialogOpen(false);
           setSelectedCategory(undefined);
         }}
-        onSave={handleSaveCategory}
+        onSave={handleCategorySave}
         category={selectedCategory}
       />
 
