@@ -1,0 +1,58 @@
+name: Documentation Issue
+description: Report issues with the documentation
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to improve our documentation!
+        
+  - type: input
+    id: page
+    attributes:
+      label: Documentation Page
+      description: Which page or section has the issue?
+      placeholder: "e.g. Installation Guide or API Reference"
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: type
+    attributes:
+      label: Issue Type
+      description: What type of documentation issue is this?
+      options:
+        - Error/Bug
+        - Missing Information
+        - Unclear Explanation
+        - Outdated Content
+        - Typo/Grammar
+        - Other
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe the issue in detail
+      placeholder: "The current documentation says... but it should be..."
+    validations:
+      required: true
+      
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Fix
+      description: If you have a specific suggestion for how to improve this, please share
+      placeholder: "I suggest changing/adding..."
+      
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this documentation issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true 

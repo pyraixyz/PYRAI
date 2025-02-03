@@ -1,0 +1,78 @@
+site_name: PyRai Documentation
+site_description: AI Model Management Platform Documentation
+site_author: PyRai Team
+site_url: https://docs.pyrai.xyz
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          rendering:
+            show_source: true
+            show_root_heading: true
+  - git-revision-date-localized:
+      type: datetime
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - footnotes
+  - meta
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      use_pygments: true
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Configuration: getting-started/configuration.md
+    - Quick Start: getting-started/quickstart.md
+  - User Guide:
+    - Authentication: user-guide/authentication.md
+    - Models: user-guide/models.md
+    - Tasks: user-guide/tasks.md
+    - Monitoring: user-guide/monitoring.md
+  - API Reference:
+    - Authentication: api/auth.md
+    - Models: api/models.md
+    - Tasks: api/tasks.md
+    - Monitoring: api/monitoring.md
+  - Development:
+    - Contributing: development/contributing.md
+    - Testing: development/testing.md
+    - Deployment: development/deployment.md
+  - About:
+    - Release Notes: about/changelog.md
+    - License: about/license.md 

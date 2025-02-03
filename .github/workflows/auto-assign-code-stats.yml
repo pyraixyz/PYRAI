@@ -1,0 +1,98 @@
+name: Code Statistics
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Monday
+  workflow_dispatch:
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install cloc radon pygount
+
+      - name: Generate statistics
+        run: |
+          cloc . --json > cloc.json
+          radon raw -j . > raw.json
+          pygount . --format=json > pygount.json
+
+      - name: Process statistics
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read statistics
+            const clocStats = JSON.parse(fs.readFileSync('cloc.json', 'utf8'));
+            const rawStats = JSON.parse(fs.readFileSync('raw.json', 'utf8'));
+            const pygountStats = JSON.parse(fs.readFileSync('pygount.json', 'utf8'));
+            
+            // Calculate trends
+            const previousStats = await github.rest.repos.getContent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path: '.github/stats/latest.json'
+            }).catch(() => null);
+            
+            let trends = '';
+            if (previousStats) {
+              const previous = JSON.parse(Buffer.from(previousStats.data.content, 'base64').toString());
+              trends = calculateTrends(clocStats, previous);
+            }
+            
+            const report = `## Code Statistics Report
+            
+            ### Lines of Code
+            - Total: ${clocStats.SUM.code}
+            - Comments: ${clocStats.SUM.comment}
+            - Blank: ${clocStats.SUM.blank}
+            
+            ### Code Composition
+            ${Object.entries(clocStats)
+              .filter(([lang]) => lang !== 'SUM')
+              .map(([lang, data]) => `- ${lang}: ${data.code} lines (${(data.code/clocStats.SUM.code*100).toFixed(1)}%)`)
+              .join('\n')}
+            
+            ### Code Complexity
+            - Average Complexity: ${calculateAverageComplexity(rawStats)}
+            - Total Functions: ${countFunctions(rawStats)}
+            - Average Function Size: ${calculateAverageFunctionSize(rawStats)} lines
+            
+            ${trends}`;
+            
+            // Save current stats
+            fs.writeFileSync('.github/stats/latest.json', JSON.stringify(clocStats));
+            
+            if (context.eventName === 'push') {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Code Statistics Report - ${new Date().toISOString().split('T')[0]}`,
+                body: report,
+                labels: ['documentation', 'automated']
+              });
+            }
+
+      - name: Upload statistics
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-stats
+          path: |
+            cloc.json
+            raw.json
+            pygount.json 

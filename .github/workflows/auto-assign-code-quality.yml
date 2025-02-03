@@ -1,0 +1,138 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint radon xenon vulture mypy ruff
+
+      - name: Run code quality checks
+        run: |
+          # Linting
+          ruff check . --output-format=json > ruff.json || true
+          pylint pyrai --output-format=json > pylint.json || true
+          
+          # Complexity checks
+          radon cc -j . > complexity.json
+          radon mi -j . > maintainability.json
+          xenon --max-absolute B --max-modules B --max-average A . > xenon.txt || true
+          
+          # Dead code detection
+          vulture . > deadcode.txt || true
+          
+          # Type checking
+          mypy pyrai --json > types.json || true
+
+      - name: Process results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let report = '## Code Quality Report\n\n';
+            
+            // Process Ruff results
+            const ruffResults = JSON.parse(fs.readFileSync('ruff.json', 'utf8'));
+            if (ruffResults.length > 0) {
+              report += '### Ruff Issues\n\n';
+              ruffResults.forEach(issue => {
+                report += `- ${issue.filename}:${issue.location.row} - ${issue.message}\n`;
+              });
+              report += '\n';
+            }
+            
+            // Process Pylint results
+            const pylintResults = JSON.parse(fs.readFileSync('pylint.json', 'utf8'));
+            if (pylintResults.length > 0) {
+              report += '### Pylint Issues\n\n';
+              pylintResults.forEach(issue => {
+                report += `- ${issue.path}:${issue.line} - ${issue.message} (${issue.symbol})\n`;
+              });
+              report += '\n';
+            }
+            
+            // Process complexity results
+            const complexityResults = JSON.parse(fs.readFileSync('complexity.json', 'utf8'));
+            const highComplexity = Object.entries(complexityResults)
+              .filter(([_, data]) => data.complexity > 10);
+            
+            if (highComplexity.length > 0) {
+              report += '### High Complexity Code\n\n';
+              highComplexity.forEach(([file, data]) => {
+                report += `- ${file}: Cyclomatic Complexity = ${data.complexity}\n`;
+              });
+              report += '\n';
+            }
+            
+            // Process maintainability results
+            const maintainabilityResults = JSON.parse(fs.readFileSync('maintainability.json', 'utf8'));
+            const lowMaintainability = Object.entries(maintainabilityResults)
+              .filter(([_, data]) => data.mi < 65);
+            
+            if (lowMaintainability.length > 0) {
+              report += '### Low Maintainability Code\n\n';
+              lowMaintainability.forEach(([file, data]) => {
+                report += `- ${file}: MI = ${data.mi}\n`;
+              });
+              report += '\n';
+            }
+            
+            // Process dead code results
+            const deadCode = fs.readFileSync('deadcode.txt', 'utf8');
+            if (deadCode.trim()) {
+              report += '### Potential Dead Code\n\n```\n' + deadCode + '\n```\n\n';
+            }
+            
+            // Process type check results
+            const typeResults = JSON.parse(fs.readFileSync('types.json', 'utf8'));
+            if (typeResults.length > 0) {
+              report += '### Type Check Issues\n\n';
+              typeResults.forEach(issue => {
+                report += `- ${issue.file}:${issue.line} - ${issue.message}\n`;
+              });
+            }
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+            
+            // Fail if there are critical issues
+            if (pylintResults.some(i => i.type === 'error') || 
+                highComplexity.length > 0 ||
+                lowMaintainability.length > 0) {
+              core.setFailed('Code quality checks failed');
+            }
+
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-quality-results
+          path: |
+            ruff.json
+            pylint.json
+            complexity.json
+            maintainability.json
+            xenon.txt
+            deadcode.txt
+            types.json 

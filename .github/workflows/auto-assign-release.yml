@@ -1,0 +1,91 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Build changelog
+        id: build_changelog
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const tagName = process.env.GITHUB_REF.replace('refs/tags/', '');
+            const previousTag = await exec.getExecOutput(
+              'git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1)'
+            ).then(output => output.stdout.trim());
+            
+            const commits = await exec.getExecOutput(
+              `git log ${previousTag}..${tagName} --pretty=format:"- %s (%h)"`
+            ).then(output => output.stdout);
+            
+            const sections = {
+              'feat': '🚀 Features',
+              'fix': '🐛 Bug Fixes',
+              'docs': '📚 Documentation',
+              'perf': '⚡ Performance',
+              'refactor': '♻️ Refactoring',
+              'test': '🧪 Testing'
+            };
+            
+            const changelog = {};
+            commits.split('\n').forEach(commit => {
+              const match = commit.match(/^- (\w+)(?:\(.*?\))?: (.+) \((.*?)\)$/);
+              if (match) {
+                const [, type, message, hash] = match;
+                const section = sections[type] || '🔧 Other';
+                changelog[section] = changelog[section] || [];
+                changelog[section].push(`- ${message} ([${hash}](${context.repo.html_url}/commit/${hash}))`);
+              }
+            });
+            
+            let body = `## What's Changed\n\n`;
+            Object.entries(changelog).forEach(([section, items]) => {
+              if (items.length > 0) {
+                body += `### ${section}\n${items.join('\n')}\n\n`;
+              }
+            });
+            
+            core.setOutput('body', body);
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ env.VERSION }}
+          body: ${{ steps.build_changelog.outputs.body }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          python -m build
+          twine upload dist/* 

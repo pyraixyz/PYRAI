@@ -1,0 +1,45 @@
+name: Mark Stale Issues and PRs
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily
+  workflow_dispatch:
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v8
+        with:
+          # Issues
+          days-before-issue-stale: 60
+          days-before-issue-close: 7
+          stale-issue-label: 'stale'
+          stale-issue-message: |
+            This issue has been automatically marked as stale because it has not had recent activity.
+            It will be closed if no further activity occurs within 7 days.
+            
+            If this issue is still relevant, please leave a comment to keep it open.
+            Thank you for your contributions!
+          close-issue-message: |
+            This issue has been automatically closed due to inactivity.
+            Please feel free to reopen it if you still need help or have updates.
+          
+          # Pull Requests
+          days-before-pr-stale: 30
+          days-before-pr-close: 7
+          stale-pr-label: 'stale'
+          stale-pr-message: |
+            This pull request has been automatically marked as stale because it has not had recent activity.
+            It will be closed if no further activity occurs within 7 days.
+            
+            Please update the PR to resolve any conflicts and address review comments.
+            Thank you for your contributions!
+          close-pr-message: |
+            This pull request has been automatically closed due to inactivity.
+            Please feel free to reopen it once you're ready to continue working on it.
+          
+          # Exempt Labels
+          exempt-issue-labels: 'security,pinned,help wanted'
+          exempt-pr-labels: 'security,pinned,dependencies'
+          exempt-all-milestones: true 

@@ -1,0 +1,80 @@
+name: Sync Labels
+
+on:
+  push:
+    paths:
+      - '.github/labels.yml'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Sync labels
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const yaml = require('js-yaml');
+            
+            // Read labels from config
+            const labelsConfig = yaml.load(
+              fs.readFileSync('.github/labels.yml', 'utf8')
+            );
+            
+            // Get existing labels
+            const existingLabels = await github.paginate(
+              github.rest.issues.listLabelsForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100
+              }
+            );
+            
+            // Create/update labels
+            for (const label of labelsConfig) {
+              const existingLabel = existingLabels.find(l => l.name === label.name);
+              
+              if (existingLabel) {
+                // Update existing label
+                if (existingLabel.color !== label.color || 
+                    existingLabel.description !== label.description) {
+                  await github.rest.issues.updateLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description
+                  });
+                  console.log(`Updated label: ${label.name}`);
+                }
+              } else {
+                // Create new label
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+                console.log(`Created label: ${label.name}`);
+              }
+            }
+            
+            // Delete obsolete labels
+            const configuredLabelNames = labelsConfig.map(l => l.name);
+            for (const existingLabel of existingLabels) {
+              if (!configuredLabelNames.includes(existingLabel.name)) {
+                await github.rest.issues.deleteLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: existingLabel.name
+                });
+                console.log(`Deleted label: ${existingLabel.name}`);
+              }
+            } 

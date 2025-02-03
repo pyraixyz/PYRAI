@@ -1,0 +1,57 @@
+groups:
+  - name: pyrai_alerts
+    rules:
+      - alert: HighRequestLatency
+        expr: api_request_duration_seconds{quantile="0.9"} > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High request latency
+          description: "90th percentile latency is above 1s (current value: {{ $value }}s)"
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High HTTP error rate
+          description: "{{ $labels.service }} is experiencing high error rate (> 5%)"
+
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))
+          > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Slow response time
+          description: "{{ $labels.service }} p95 latency is above 1s"
+
+      - alert: HighCPUUsage
+        expr: |
+          avg(rate(process_cpu_seconds_total[5m])) by (service)
+          > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High CPU usage
+          description: "{{ $labels.service }} is using high CPU (> 80%)"
+
+      - alert: HighMemoryUsage
+        expr: |
+          process_resident_memory_bytes / process_virtual_memory_bytes
+          > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High memory usage
+          description: "{{ $labels.service }} memory usage is high (> 80%)" 

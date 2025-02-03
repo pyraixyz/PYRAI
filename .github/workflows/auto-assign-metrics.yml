@@ -1,0 +1,91 @@
+name: Project Metrics
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Monday
+  workflow_dispatch:
+
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Collect metrics
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const metrics = {
+              issues: {
+                total: 0,
+                open: 0,
+                closed: 0,
+                avgTimeToClose: 0
+              },
+              prs: {
+                total: 0,
+                open: 0,
+                merged: 0,
+                avgTimeToMerge: 0
+              },
+              contributors: 0
+            };
+            
+            // Get issues metrics
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 100
+            });
+            
+            metrics.issues.total = issues.length;
+            metrics.issues.open = issues.filter(i => i.state === 'open').length;
+            metrics.issues.closed = issues.filter(i => i.state === 'closed').length;
+            
+            // Get PR metrics
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 100
+            });
+            
+            metrics.prs.total = prs.length;
+            metrics.prs.open = prs.filter(p => p.state === 'open').length;
+            metrics.prs.merged = prs.filter(p => p.merged).length;
+            
+            // Get contributors count
+            const contributors = await github.paginate(github.rest.repos.listContributors, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            
+            metrics.contributors = contributors.length;
+            
+            // Create or update metrics issue
+            const body = `## Project Metrics Report
+            
+            ### Issues
+            - Total: ${metrics.issues.total}
+            - Open: ${metrics.issues.open}
+            - Closed: ${metrics.issues.closed}
+            
+            ### Pull Requests
+            - Total: ${metrics.prs.total}
+            - Open: ${metrics.prs.open}
+            - Merged: ${metrics.prs.merged}
+            
+            ### Contributors
+            - Total: ${metrics.contributors}
+            
+            Generated at: ${new Date().toISOString()}`;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Project Metrics Report - ${new Date().toISOString().split('T')[0]}`,
+              body: body,
+              labels: ['metrics', 'report']
+            }); 

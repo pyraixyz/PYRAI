@@ -1,0 +1,103 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    paths:
+      - 'pyrai/**'
+      - 'tests/integration/**'
+  schedule:
+    - cron: '0 0 * * 1-5'  # Run on weekdays
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[test]
+          pip install pytest-integration pytest-timeout pytest-rerunfailures
+
+      - name: Run integration tests
+        env:
+          POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          REDIS_URL: redis://localhost:6379/0
+          RABBITMQ_URL: amqp://guest:guest@localhost:5672/%2F
+        run: |
+          pytest tests/integration -v --reruns 3 --reruns-delay 5 --timeout=600 --junitxml=integration-results.xml
+
+      - name: Process test results
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const xml2js = require('xml2js');
+            
+            const testXml = fs.readFileSync('integration-results.xml', 'utf8');
+            const parser = new xml2js.Parser();
+            const results = await parser.parseStringPromise(testXml);
+            
+            const testsuites = results.testsuites.testsuite[0];
+            const report = `## Integration Test Results
+            
+            - Total Tests: ${testsuites.$.tests}
+            - Passed: ${testsuites.$.tests - testsuites.$.failures - testsuites.$.errors}
+            - Failed: ${testsuites.$.failures}
+            - Errors: ${testsuites.$.errors}
+            - Skipped: ${testsuites.$.skipped}
+            - Time: ${testsuites.$.time}s
+            
+            ${testsuites.$.failures > 0 || testsuites.$.errors > 0 ? '### Failed Tests\n\n' + 
+              testsuites.testcase
+                .filter(test => test.failure || test.error)
+                .map(test => `- ${test.$.name}\n  ${(test.failure || test.error)[0]._}`)
+                .join('\n')
+              : ''}`;
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-test-results
+          path: integration-results.xml 

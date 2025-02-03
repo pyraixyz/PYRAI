@@ -1,0 +1,49 @@
+name: Auto Assign Priority
+
+on:
+  issues:
+    types: [opened, labeled, unlabeled]
+  pull_request:
+    types: [opened, labeled, unlabeled]
+
+jobs:
+  assign-priority:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const priorityRules = {
+              'security': 'priority/critical',
+              'bug': 'priority/high',
+              'enhancement': 'priority/medium',
+              'documentation': 'priority/low'
+            };
+            
+            const item = context.payload.issue || context.payload.pull_request;
+            const labels = item.labels.map(l => l.name);
+            
+            let highestPriority = 'priority/low';
+            for (const label of labels) {
+              if (priorityRules[label] && 
+                  getPriorityLevel(priorityRules[label]) > getPriorityLevel(highestPriority)) {
+                highestPriority = priorityRules[label];
+              }
+            }
+            
+            function getPriorityLevel(priority) {
+              const levels = {
+                'priority/critical': 4,
+                'priority/high': 3,
+                'priority/medium': 2,
+                'priority/low': 1
+              };
+              return levels[priority] || 0;
+            }
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: item.number,
+              labels: [highestPriority]
+            }); 

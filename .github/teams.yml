@@ -1,0 +1,55 @@
+core-team:
+  name: Core Team
+  description: Core development team
+  privacy: closed
+  members:
+    - core-member-1
+    - core-member-2
+
+blockchain-team:
+  name: Blockchain Team
+  description: Blockchain integration team
+  privacy: closed
+  members:
+    - blockchain-member-1
+    - blockchain-member-2
+
+api-team:
+  name: API Team
+  description: API development team
+  privacy: closed
+  members:
+    - api-member-1
+    - api-member-2
+
+docs-team:
+  name: Documentation Team
+  description: Documentation and technical writing team
+  privacy: closed
+  members:
+    - docs-member-1
+    - docs-member-2
+
+security-team:
+  name: Security Team
+  description: Security and compliance team
+  privacy: secret
+  members:
+    - security-member-1
+    - security-member-2
+
+qa-team:
+  name: QA Team
+  description: Quality assurance team
+  privacy: closed
+  members:
+    - qa-member-1
+    - qa-member-2
+
+devops-team:
+  name: DevOps Team
+  description: Infrastructure and operations team
+  privacy: closed
+  members:
+    - devops-member-1
+    - devops-member-2 

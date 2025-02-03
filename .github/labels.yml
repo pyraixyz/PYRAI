@@ -1,0 +1,109 @@
+# Issue Types
+- name: bug
+  color: d73a4a
+  description: Something isn't working
+- name: enhancement
+  color: a2eeef
+  description: New feature or request
+- name: documentation
+  color: 0075ca
+  description: Documentation improvements
+- name: question
+  color: d876e3
+  description: Further information is requested
+
+# Priorities
+- name: priority/critical
+  color: b60205
+  description: Must be fixed ASAP
+- name: priority/high
+  color: d93f0b
+  description: Should be fixed in next release
+- name: priority/medium
+  color: fbca04
+  description: Should be fixed soon
+- name: priority/low
+  color: 0e8a16
+  description: Nice to have
+
+# Status
+- name: needs-triage
+  color: c5def5
+  description: Needs maintainer review
+- name: needs-info
+  color: c5def5
+  description: More information needed
+- name: needs-reproduction
+  color: c5def5
+  description: Bug needs to be reproduced
+- name: stale
+  color: ffffff
+  description: No recent activity
+
+# Size
+- name: size/XS
+  color: 009900
+  description: <10 lines changed
+- name: size/S
+  color: 77bb00
+  description: <50 lines changed
+- name: size/M
+  color: eebb00
+  description: <200 lines changed
+- name: size/L
+  color: ee9900
+  description: <500 lines changed
+- name: size/XL
+  color: ee5500
+  description: <1000 lines changed
+- name: size/XXL
+  color: ee0000
+  description: >1000 lines changed
+
+# Issue and PR Labels
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers
+- name: help wanted
+  color: 008672
+  description: Extra attention is needed
+- name: invalid
+  color: e4e669
+  description: This doesn't seem right
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
+
+# Component Labels
+- name: component/core
+  color: 1d76db
+  description: Related to core functionality
+- name: component/blockchain
+  color: 0052cc
+  description: Related to blockchain integration
+- name: component/api
+  color: 006b75
+  description: Related to API functionality
+- name: component/ui
+  color: 5319e7
+  description: Related to user interface
+- name: component/docs
+  color: 0075ca
+  description: Related to documentation
+
+# Additional Labels
+- name: dependencies
+  color: 0366d6
+  description: Pull requests that update a dependency file
+- name: security
+  color: ee0701
+  description: Security related issue or update
+- name: performance
+  color: 40c4ff
+  description: Performance improvement
+- name: testing
+  color: 9ccc65
+  description: Testing related changes
+- name: ci
+  color: 4caf50
+  description: Changes to CI configuration files and scripts 

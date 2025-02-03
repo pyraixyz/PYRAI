@@ -1,0 +1,31 @@
+name: Publish to Conda
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  conda:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install conda-build anaconda-client
+          
+      - name: Build conda package
+        run: |
+          conda build .
+          
+      - name: Upload to Anaconda.org
+        env:
+          ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+        run: |
+          anaconda -t $ANACONDA_TOKEN upload -u pyrai --force $CONDA_BLD_PATH/noarch/pyrai-*.tar.bz2 

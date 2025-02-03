@@ -1,0 +1,55 @@
+name: Release Test
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  test-install:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyrai
+
+      - name: Test import
+        run: |
+          python -c "import pyrai; print(pyrai.__version__)"
+
+      - name: Run smoke tests
+        run: |
+          python -c "
+          import pyrai
+          # Add basic smoke tests here
+          "
+
+      - name: Report status
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const report = `## Installation Test Results
+            
+            - OS: ${{ matrix.os }}
+            - Python: ${{ matrix.python-version }}
+            - Status: ${{ job.status }}
+            `;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.event.release.id,
+              body: report
+            }); 

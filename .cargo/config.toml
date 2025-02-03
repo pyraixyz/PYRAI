@@ -1,0 +1,19 @@
+[build]
+target = "bpfel-unknown-unknown"
+
+[target.bpfel-unknown-unknown]
+rustflags = [
+    "-C", "link-arg=-z",
+    "-C", "link-arg=notext",
+    "-C", "link-arg=-export-dynamic",
+    "-C", "link-arg=-Bstatic",
+]
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+split-debuginfo = "unpacked" 

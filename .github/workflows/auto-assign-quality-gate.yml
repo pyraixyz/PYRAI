@@ -1,0 +1,103 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+          pip install radon xenon lizard
+
+      - name: Check code quality
+        run: |
+          # Cyclomatic complexity
+          radon cc -a -s pyrai > complexity.txt
+          
+          # Maintainability index
+          radon mi -s pyrai > maintainability.txt
+          
+          # Code metrics
+          lizard pyrai --xml > metrics.xml
+          
+          # Check thresholds
+          xenon --max-absolute B --max-modules B --max-average A pyrai || echo "COMPLEXITY_ISSUES=true" >> $GITHUB_ENV
+
+      - name: Process quality results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const xml2js = require('xml2js');
+            
+            let report = '## Code Quality Report\n\n';
+            
+            // Process complexity results
+            const complexity = fs.readFileSync('complexity.txt', 'utf8');
+            report += '### Cyclomatic Complexity\n\n```\n' + complexity + '\n```\n\n';
+            
+            // Process maintainability results
+            const maintainability = fs.readFileSync('maintainability.txt', 'utf8');
+            report += '### Maintainability Index\n\n```\n' + maintainability + '\n```\n\n';
+            
+            // Process metrics
+            const metricsXml = fs.readFileSync('metrics.xml', 'utf8');
+            const parser = new xml2js.Parser();
+            const metrics = await parser.parseStringPromise(metricsXml);
+            
+            report += '### Code Metrics\n\n';
+            metrics.lizard.function.forEach(func => {
+              if (func.$.CCN > 10 || func.$.length > 50) {
+                report += `- ${func.$.name}\n`;
+                report += `  - CCN: ${func.$.CCN}\n`;
+                report += `  - Lines: ${func.$.length}\n`;
+                report += `  - File: ${func.$.file}\n\n`;
+              }
+            });
+            
+            // Add quality gates
+            report += '### Quality Gates\n\n';
+            const gates = [
+              { name: 'Cyclomatic Complexity', pass: !process.env.COMPLEXITY_ISSUES },
+              { name: 'Function Length', pass: metrics.lizard.function.every(f => f.$.length <= 50) },
+              { name: 'Maintainability', pass: !maintainability.includes('C ') }
+            ];
+            
+            gates.forEach(gate => {
+              report += `${gate.pass ? '✅' : '❌'} ${gate.name}\n`;
+            });
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: report
+            });
+            
+            // Fail if any gate fails
+            if (gates.some(g => !g.pass)) {
+              core.setFailed('Quality gates check failed');
+            }
+
+      - name: Upload quality results
+        uses: actions/upload-artifact@v3
+        with:
+          name: quality-report
+          path: |
+            complexity.txt
+            maintainability.txt
+            metrics.xml 

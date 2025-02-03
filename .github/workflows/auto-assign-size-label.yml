@@ -1,0 +1,41 @@
+name: Auto Assign Size Label
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  size-label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const changes = files.data.reduce((acc, file) => acc + file.changes, 0);
+            const filesCount = files.data.length;
+            
+            let sizeLabel;
+            if (changes <= 10) {
+              sizeLabel = 'size/XS';
+            } else if (changes <= 50) {
+              sizeLabel = 'size/S';
+            } else if (changes <= 250) {
+              sizeLabel = 'size/M';
+            } else if (changes <= 1000) {
+              sizeLabel = 'size/L';
+            } else {
+              sizeLabel = 'size/XL';
+            }
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [sizeLabel]
+            }); 

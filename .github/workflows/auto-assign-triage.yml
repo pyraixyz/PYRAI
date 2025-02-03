@@ -1,0 +1,33 @@
+name: Auto Triage
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const triageTeam = ['maintainer1', 'maintainer2', 'maintainer3'];
+            const randomAssignee = triageTeam[Math.floor(Math.random() * triageTeam.length)];
+            
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue?.number || context.payload.pull_request?.number,
+              assignees: [randomAssignee]
+            });
+            
+            if (context.payload.issue) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                labels: ['needs-triage']
+              });
+            } 

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pyrai-staging
+  namespace: staging
+  labels:
+    app: pyrai
+    env: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pyrai
+      env: staging
+  template:
+    metadata:
+      labels:
+        app: pyrai
+        env: staging
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: pyrai
+          image: ghcr.io/pyrai/pyrai:staging
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PYRAI_ENV
+              value: staging
+            - name: PYRAI_DEBUG
+              value: "false"
+            - name: PYRAI_LOG_LEVEL
+              value: INFO
+            - name: PYRAI_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pyrai-secrets
+                  key: secret-key
+            - name: POSTGRES_HOST
+              value: postgres-staging
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: pyrai-secrets
+                  key: postgres-db
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: pyrai-secrets
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pyrai-secrets
+                  key: postgres-password
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20 

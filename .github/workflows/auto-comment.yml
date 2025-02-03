@@ -1,0 +1,35 @@
+name: Auto Comment
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+jobs:
+  auto-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on new issues
+        uses: actions/github-script@v6
+        if: github.event_name == 'issues'
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '👋 Thanks for reporting this issue! Our team will review it soon.\n\nIn the meantime, please make sure you have:\n- [ ] Checked our documentation\n- [ ] Searched for similar issues\n- [ ] Provided all necessary information'
+            })
+
+      - name: Comment on new PRs
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🎉 Thanks for submitting this PR!\n\nPlease ensure you have:\n- [ ] Added/updated tests\n- [ ] Updated documentation\n- [ ] Followed our contributing guidelines\n\nWe will review this soon!'
+            }) 

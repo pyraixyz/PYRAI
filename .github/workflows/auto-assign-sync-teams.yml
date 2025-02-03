@@ -1,0 +1,101 @@
+name: Sync Teams
+
+on:
+  push:
+    paths:
+      - '.github/teams.yml'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync-teams:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Sync teams
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const yaml = require('js-yaml');
+            
+            // Read teams config
+            const teamsConfig = yaml.load(
+              fs.readFileSync('.github/teams.yml', 'utf8')
+            );
+            
+            // Get existing teams
+            const existingTeams = await github.paginate(
+              github.rest.teams.list,
+              {
+                org: context.repo.owner,
+                per_page: 100
+              }
+            );
+            
+            // Create/update teams
+            for (const [teamSlug, config] of Object.entries(teamsConfig)) {
+              const existingTeam = existingTeams.find(t => t.slug === teamSlug);
+              
+              if (existingTeam) {
+                // Update existing team
+                await github.rest.teams.updateInOrg({
+                  org: context.repo.owner,
+                  team_slug: teamSlug,
+                  name: config.name,
+                  description: config.description,
+                  privacy: config.privacy || 'closed',
+                  parent_team_id: config.parent_team_id
+                });
+                console.log(`Updated team: ${teamSlug}`);
+              } else {
+                // Create new team
+                await github.rest.teams.create({
+                  org: context.repo.owner,
+                  name: config.name,
+                  description: config.description,
+                  privacy: config.privacy || 'closed',
+                  parent_team_id: config.parent_team_id
+                });
+                console.log(`Created team: ${teamSlug}`);
+              }
+              
+              // Sync team members
+              if (config.members) {
+                const currentMembers = await github.paginate(
+                  github.rest.teams.listMembersInOrg,
+                  {
+                    org: context.repo.owner,
+                    team_slug: teamSlug,
+                    per_page: 100
+                  }
+                );
+                
+                // Add new members
+                for (const member of config.members) {
+                  if (!currentMembers.find(m => m.login === member)) {
+                    await github.rest.teams.addOrUpdateMembershipForUserInOrg({
+                      org: context.repo.owner,
+                      team_slug: teamSlug,
+                      username: member,
+                      role: 'member'
+                    });
+                    console.log(`Added ${member} to ${teamSlug}`);
+                  }
+                }
+                
+                // Remove old members
+                for (const member of currentMembers) {
+                  if (!config.members.includes(member.login)) {
+                    await github.rest.teams.removeMembershipForUserInOrg({
+                      org: context.repo.owner,
+                      team_slug: teamSlug,
+                      username: member.login
+                    });
+                    console.log(`Removed ${member.login} from ${teamSlug}`);
+                  }
+                }
+              }
+            } 

@@ -1,0 +1,51 @@
+name: Branch Naming Convention
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const branchName = context.payload.pull_request.head.ref;
+            const validPrefixes = ['feature', 'bugfix', 'hotfix', 'release', 'support'];
+            const pattern = new RegExp(`^(${validPrefixes.join('|')})/[A-Z]+-\\d+-.+$`);
+            
+            if (!pattern.test(branchName)) {
+              core.setFailed(`
+                Invalid branch name: ${branchName}
+                
+                Branch names must follow the convention:
+                <type>/<ticket-id>-<description>
+                
+                Examples:
+                - feature/RAI-123-add-new-feature
+                - bugfix/RAI-456-fix-memory-leak
+                - hotfix/RAI-789-critical-security-fix
+                
+                Valid types: ${validPrefixes.join(', ')}
+              `);
+            }
+            
+            // Add branch type label
+            const type = branchName.split('/')[0];
+            const labelMap = {
+              'feature': 'enhancement',
+              'bugfix': 'bug',
+              'hotfix': 'bug,priority/critical',
+              'release': 'release',
+              'support': 'maintenance'
+            };
+            
+            const labels = labelMap[type].split(',');
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              labels: labels
+            }); 

@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  api:
+    build: 
+      context: .
+      dockerfile: docker/base/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ~/.solana:/root/.solana
+    environment:
+      - SOLANA_NETWORK=devnet
+      - LOG_LEVEL=DEBUG
+      - PYTHONPATH=/app
+    command: uvicorn pyrai.api.server:app --host 0.0.0.0 --port 8000 --reload
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+
+  postgres:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=pyrai
+      - POSTGRES_PASSWORD=pyrai
+      - POSTGRES_DB=pyrai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  grafana_data:
+  postgres_data: 

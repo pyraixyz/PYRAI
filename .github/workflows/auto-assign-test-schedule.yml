@@ -1,0 +1,64 @@
+name: Scheduled Tests
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[test]
+          pip install pytest pytest-cov pytest-xdist pytest-timeout pytest-randomly
+
+      - name: Run tests
+        run: |
+          pytest -n auto --cov=pyrai --cov-report=xml --timeout=300 --randomly-seed=${{ github.run_id }}
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: coverage.xml
+          flags: scheduled
+          name: ${{ matrix.os }}-py${{ matrix.python-version }}
+
+      - name: Process test results
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const testResults = require('./test-results.json');
+            const report = `## Test Results for ${{ matrix.os }} - Python ${{ matrix.python-version }}
+            
+            - Total Tests: ${testResults.summary.total}
+            - Passed: ${testResults.summary.passed}
+            - Failed: ${testResults.summary.failed}
+            - Skipped: ${testResults.summary.skipped}
+            - Duration: ${testResults.duration}s
+            
+            ${testResults.summary.failed > 0 ? '### Failed Tests\n\n' + testResults.failures.map(f => 
+              `- ${f.name}\n  ${f.message}`
+            ).join('\n') : ''}`;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Scheduled Test Results - ${new Date().toISOString().split('T')[0]}`,
+              body: report,
+              labels: ['test-results', 'automated']
+            }); 

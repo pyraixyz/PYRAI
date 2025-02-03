@@ -1,0 +1,58 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pyrai-api
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: pyrai-api
+  endpoints:
+  - port: http
+    path: /monitoring/metrics
+    interval: 15s
+  namespaceSelector:
+    matchNames:
+    - pyrai
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pyrai-alerts
+  namespace: monitoring
+spec:
+  groups:
+  - name: pyrai
+    rules:
+    - alert: HighErrorRate
+      expr: |
+        sum(rate(http_requests_total{status=~"5.."}[5m])) 
+        / 
+        sum(rate(http_requests_total[5m])) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High HTTP error rate
+        description: Error rate is above 10% for 5 minutes
+
+    - alert: HighLatency
+      expr: |
+        histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High latency
+        description: 95th percentile latency is above 1s for 5 minutes
+
+    - alert: HighCPUUsage
+      expr: |
+        avg(rate(container_cpu_usage_seconds_total{container="api"}[5m])) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High CPU usage
+        description: CPU usage is above 80% for 5 minutes 

@@ -1,0 +1,38 @@
+name: Auto Assign Backport
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  backport:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const backportLabels = {
+              'backport/0.1.x': '0.1.x',
+              'backport/0.2.x': '0.2.x',
+              'backport/0.3.x': '0.3.x'
+            };
+            
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map(l => l.name);
+            
+            for (const [label, branch] of Object.entries(backportLabels)) {
+              if (labels.includes(label)) {
+                await github.rest.pulls.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `[Backport ${branch}] ${pr.title}`,
+                  body: `Backport of #${pr.number} to ${branch}\n\n${pr.body || ''}`,
+                  head: `backport-${pr.number}-to-${branch}`,
+                  base: branch,
+                  maintainer_can_modify: true
+                });
+              }
+            } 

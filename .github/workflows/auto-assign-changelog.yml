@@ -1,0 +1,60 @@
+name: Auto Update Changelog
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  update-changelog:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Update Changelog
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const pr = context.payload.pull_request;
+            
+            // Determine the type of change
+            let type = 'Other Changes';
+            const labels = pr.labels.map(l => l.name);
+            
+            if (labels.includes('breaking-change')) {
+              type = 'Breaking Changes';
+            } else if (labels.includes('feature')) {
+              type = 'Features';
+            } else if (labels.includes('bug')) {
+              type = 'Bug Fixes';
+            } else if (labels.includes('documentation')) {
+              type = 'Documentation';
+            }
+            
+            const entry = `- ${type}: ${pr.title} (#${pr.number}) @${pr.user.login}`;
+            
+            // Read current changelog
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+            
+            // Add new entry under [Unreleased] section
+            const updatedChangelog = changelog.replace(
+              /## \[Unreleased\]/,
+              `## [Unreleased]\n\n${entry}`
+            );
+            
+            // Write back to file
+            fs.writeFileSync('CHANGELOG.md', updatedChangelog);
+            
+            // Commit changes
+            const commitMessage = `docs: update changelog for #${pr.number}`;
+            
+            await exec.exec('git', ['config', '--local', 'user.email', 'action@github.com']);
+            await exec.exec('git', ['config', '--local', 'user.name', 'GitHub Action']);
+            await exec.exec('git', ['add', 'CHANGELOG.md']);
+            await exec.exec('git', ['commit', '-m', commitMessage]);
+            await exec.exec('git', ['push']); 

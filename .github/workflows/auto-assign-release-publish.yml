@@ -1,0 +1,55 @@
+name: Publish Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: twine upload dist/*
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const { version } = JSON.parse(fs.readFileSync('pyproject.toml', 'utf8'));
+            
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+            const releaseNotes = changelog.split('\n\n')[1]; // Get latest release notes
+            
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${version}`,
+              name: `Release v${version}`,
+              body: releaseNotes,
+              draft: false,
+              prerelease: false
+            });
+
+      - name: Update Documentation
+        run: |
+          pip install mkdocs mkdocs-material mkdocstrings[python]
+          mkdocs gh-deploy --force 

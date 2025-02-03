@@ -1,0 +1,30 @@
+matrix:
+- name: Python
+  sources:
+  - 'pyrai/**/*.py'
+  aspell:
+    lang: en
+  dictionary:
+    wordlists:
+    - .wordlist.txt
+    encoding: utf-8
+  pipeline:
+  - pyspelling.filters.python:
+      comments: true
+      docstrings: true
+      strings: false
+
+- name: Markdown
+  sources:
+  - '**/*.md'
+  aspell:
+    lang: en
+  dictionary:
+    wordlists:
+    - .wordlist.txt
+    encoding: utf-8
+  pipeline:
+  - pyspelling.filters.markdown:
+      markdown_extensions:
+      - markdown.extensions.extra
+      - markdown.extensions.admonition 

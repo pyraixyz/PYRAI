@@ -1,0 +1,42 @@
+name: Auto Assign Type
+
+on:
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  assign-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const typePatterns = {
+              '^feat(\(.+\))?:': 'type/feature',
+              '^fix(\(.+\))?:': 'type/bug',
+              '^docs(\(.+\))?:': 'type/docs',
+              '^style(\(.+\))?:': 'type/style',
+              '^refactor(\(.+\))?:': 'type/refactor',
+              '^perf(\(.+\))?:': 'type/performance',
+              '^test(\(.+\))?:': 'type/test',
+              '^build(\(.+\))?:': 'type/build',
+              '^ci(\(.+\))?:': 'type/ci',
+              '^chore(\(.+\))?:': 'type/chore'
+            };
+            
+            const title = context.payload.pull_request.title;
+            let typeLabel = 'type/other';
+            
+            for (const [pattern, label] of Object.entries(typePatterns)) {
+              if (new RegExp(pattern).test(title)) {
+                typeLabel = label;
+                break;
+              }
+            }
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [typeLabel]
+            }); 

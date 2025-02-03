@@ -1,0 +1,52 @@
+name: Auto Branch Protection
+
+on:
+  repository_dispatch:
+    types: [update-branch-protection]
+  workflow_dispatch:
+
+jobs:
+  protect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.ADMIN_TOKEN }}
+          script: |
+            const branches = ['main', 'develop'];
+            
+            for (const branch of branches) {
+              await github.rest.repos.updateBranchProtection({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: branch,
+                required_status_checks: {
+                  strict: true,
+                  contexts: [
+                    'tests',
+                    'lint',
+                    'CodeQL',
+                    'security-scan'
+                  ]
+                },
+                enforce_admins: true,
+                required_pull_request_reviews: {
+                  dismissal_restrictions: {
+                    users: [],
+                    teams: ['maintainers']
+                  },
+                  dismiss_stale_reviews: true,
+                  require_code_owner_reviews: true,
+                  required_approving_review_count: 1
+                },
+                restrictions: {
+                  users: [],
+                  teams: ['maintainers'],
+                  apps: []
+                },
+                allow_force_pushes: false,
+                allow_deletions: false,
+                required_linear_history: true,
+                allow_fork_syncing: true
+              });
+            } 

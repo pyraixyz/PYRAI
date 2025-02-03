@@ -1,0 +1,33 @@
+name: Greetings
+
+on: [pull_request_target, issues]
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+    - uses: actions/first-interaction@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-message: |
+          👋 Thanks for opening your first issue in PyRAI! 
+          
+          Please make sure you have:
+          - Checked our documentation
+          - Searched for existing issues
+          - Provided all necessary information
+          
+          We'll review this soon!
+        pr-message: |
+          🎉 Thanks for submitting your first pull request to PyRAI!
+          
+          Please ensure you have:
+          - Read our contributing guidelines
+          - Added/updated tests
+          - Updated documentation
+          - Signed our CLA
+          
+          We'll review this soon! 

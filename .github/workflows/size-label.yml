@@ -1,0 +1,28 @@
+name: Size Label
+
+on: [pull_request]
+
+jobs:
+  size-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Size Label
+        uses: "pascalgn/size-label-action@v0.4.3"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          sizes: >
+            {
+              "0": "XS",
+              "20": "S",
+              "50": "M",
+              "200": "L",
+              "800": "XL",
+              "2000": "XXL"
+            }
+          files: >
+            {
+              "!(**/*.md|**/*.txt)": 1,
+              "**/*.md": 0.5,
+              "**/*.txt": 0.5
+            } 

@@ -24,20 +24,58 @@ wheels/
 venv/
 env/
 ENV/
+.env
+.venv
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-.project
-.pydevproject
-.settings/
+*~
+
+# Testing
+.coverage
+coverage.xml
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# Documentation
+docs/_build/
+site/
+
+# Distribution
+dist/
+build/
+
+# Logs
+*.log
+logs/
+log/
+
+# Cache
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local development
+*.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+
+# Project
+data/
+logs/
+models/
+*.log
+.env
 
 # Logs and databases
-*.log
 *.sqlite
-logs/
 runs/
 
 # Model files
@@ -45,10 +83,8 @@ runs/
 *.pth
 *.onnx
 *.h5
-models/
 
 # Data
-data/
 datasets/
 *.csv
 *.json
@@ -58,11 +94,6 @@ datasets/
 # Documentation
 docs/_build/
 docs/generated/
-
-# Test coverage
-.coverage
-coverage.xml
-htmlcov/
 
 # Jupyter Notebooks
 .ipynb_checkpoints

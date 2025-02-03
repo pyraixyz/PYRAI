@@ -1,0 +1,91 @@
+name: Format Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort ruff
+
+      - name: Check formatting
+        run: |
+          black --check --diff . > black.txt || true
+          isort --check-only --diff . > isort.txt || true
+          ruff check . > ruff.txt || true
+
+      - name: Process format results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let report = '## Code Format Check\n\n';
+            let hasIssues = false;
+            
+            // Process black results
+            const blackOutput = fs.readFileSync('black.txt', 'utf8');
+            if (blackOutput.trim()) {
+              hasIssues = true;
+              report += '### Black Formatting Issues\n\n```diff\n' + blackOutput + '\n```\n\n';
+            }
+            
+            // Process isort results
+            const isortOutput = fs.readFileSync('isort.txt', 'utf8');
+            if (isortOutput.trim()) {
+              hasIssues = true;
+              report += '### Import Sorting Issues\n\n```diff\n' + isortOutput + '\n```\n\n';
+            }
+            
+            // Process ruff results
+            const ruffOutput = fs.readFileSync('ruff.txt', 'utf8');
+            if (ruffOutput.trim()) {
+              hasIssues = true;
+              report += '### Ruff Linting Issues\n\n```\n' + ruffOutput + '\n```\n\n';
+            }
+            
+            if (hasIssues) {
+              report += `
+              ### How to fix
+              Run these commands locally:
+              \`\`\`bash
+              black .
+              isort .
+              ruff --fix .
+              \`\`\`
+              `;
+              
+              if (context.eventName === 'pull_request') {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: report
+                });
+              }
+              
+              core.setFailed('Code format check failed');
+            }
+
+      - name: Upload format results
+        uses: actions/upload-artifact@v3
+        with:
+          name: format-check-results
+          path: |
+            black.txt
+            isort.txt
+            ruff.txt 

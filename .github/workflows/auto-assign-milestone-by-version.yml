@@ -1,0 +1,51 @@
+name: Auto Assign Milestone by Version
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, unlabeled]
+
+jobs:
+  assign-milestone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const versionLabels = {
+              'version/major': 'major',
+              'version/minor': 'minor',
+              'version/patch': 'patch'
+            };
+            
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map(l => l.name);
+            
+            let versionType = 'patch';  // default to patch
+            for (const label of labels) {
+              if (versionLabels[label]) {
+                versionType = versionLabels[label];
+                break;
+              }
+            }
+            
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'due_on',
+              direction: 'asc'
+            });
+            
+            const nextMilestone = milestones.data.find(m => {
+              const version = m.title.match(/v(\d+)\.(\d+)\.(\d+)/);
+              return version && version[0];
+            });
+            
+            if (nextMilestone) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                milestone: nextMilestone.number
+              });
+            } 

@@ -1,0 +1,87 @@
+name: Release Cleanup
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Clean old releases
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            // Keep only the latest 5 releases
+            const releasesToDelete = releases.slice(5);
+            
+            for (const release of releasesToDelete) {
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id
+              });
+              
+              // Delete the tag as well
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `tags/${release.tag_name}`
+                });
+              } catch (error) {
+                console.log(`Failed to delete tag ${release.tag_name}: ${error.message}`);
+              }
+            }
+
+      - name: Clean old artifacts
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            const now = new Date();
+            const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+            
+            for (const artifact of artifacts) {
+              if (new Date(artifact.created_at) < thirtyDaysAgo) {
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id
+                });
+              }
+            }
+
+      - name: Clean old workflows
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            const now = new Date();
+            const ninetyDaysAgo = new Date(now - 90 * 24 * 60 * 60 * 1000);
+            
+            for (const run of runs) {
+              if (new Date(run.created_at) < ninetyDaysAgo) {
+                await github.rest.actions.deleteWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id
+                });
+              }
+            } 

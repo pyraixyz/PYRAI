@@ -1,0 +1,50 @@
+name: GPU Benchmarks
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'pyrai/**'
+      - 'tests/performance/**'
+      - '.github/workflows/benchmark-gpu.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'pyrai/**'
+      - 'tests/performance/**'
+      - '.github/workflows/benchmark-gpu.yml'
+
+jobs:
+  benchmark:
+    runs-on: [self-hosted, gpu]
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        pip install pytest-benchmark
+
+    - name: Run GPU benchmarks
+      run: |
+        pytest tests/performance/gpu/ --benchmark-only --benchmark-json output.json
+      env:
+        CUDA_VISIBLE_DEVICES: 0
+
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: GPU Benchmark
+        tool: 'pytest'
+        output-file-path: output.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        alert-threshold: '200%'
+        comment-on-alert: true
+        fail-on-alert: true 

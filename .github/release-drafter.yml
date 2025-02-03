@@ -1,0 +1,68 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '💥 Breaking Changes'
+    labels:
+      - 'breaking-change'
+  - title: '🚀 Features'
+    labels:
+      - 'feature'
+      - 'enhancement'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'bug'
+      - 'fix'
+  - title: '📚 Documentation'
+    labels:
+      - 'documentation'
+      - 'docs'
+  - title: '⚡ Performance'
+    labels:
+      - 'performance'
+      - 'perf'
+  - title: '🔧 Maintenance'
+    labels:
+      - 'maintenance'
+      - 'refactor'
+      - 'testing'
+      - 'test'
+      - 'ci'
+
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+
+version-resolver:
+  major:
+    labels:
+      - 'breaking-change'
+  minor:
+    labels:
+      - 'feature'
+      - 'enhancement'
+  patch:
+    labels:
+      - 'bug'
+      - 'fix'
+      - 'maintenance'
+      - 'docs'
+      - 'documentation'
+      - 'dependencies'
+  default: patch
+
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+  ## Installation
+
+  ```bash
+  pip install pyrai==$RESOLVED_VERSION
+  ```
+
+  For more information, see the [documentation](https://pyrai.readthedocs.io/). 

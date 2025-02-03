@@ -1,0 +1,46 @@
+name: Verify Changelog
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches:
+      - main
+
+jobs:
+  verify-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check changelog update
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map(l => l.name);
+            
+            // Skip changelog check for certain types of changes
+            const skipLabels = ['dependencies', 'no-changelog', 'automated'];
+            if (skipLabels.some(label => labels.includes(label))) {
+              console.log('Skipping changelog check due to labels:', skipLabels);
+              return;
+            }
+            
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            
+            const changelogUpdated = files.data.some(file => 
+              file.filename === 'CHANGELOG.md' || 
+              file.filename === 'RELEASE_NOTES.md'
+            );
+            
+            if (!changelogUpdated) {
+              core.setFailed(`
+                No changelog update found. Please add an entry to CHANGELOG.md or RELEASE_NOTES.md.
+                
+                If this PR doesn't require a changelog entry, please add the 'no-changelog' label.
+              `);
+            } 

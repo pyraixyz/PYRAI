@@ -1,0 +1,62 @@
+name: PR Review Reminder
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'  # Run at 9 AM Monday-Friday
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check stale reviews
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const now = new Date();
+            const twoDaysAgo = new Date(now - 2 * 24 * 60 * 60 * 1000);
+            
+            // Get open PRs
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'desc'
+            });
+            
+            for (const pr of prs) {
+              // Get PR reviews
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              // Get requested reviewers
+              const reviewers = await github.rest.pulls.listRequestedReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              const pendingReviewers = reviewers.data.users.map(u => '@' + u.login);
+              
+              if (pendingReviewers.length > 0 && 
+                  new Date(pr.updated_at) < twoDaysAgo) {
+                const comment = `## 🔔 Review Reminder
+                
+                This PR has been waiting for review for over 2 days.
+                
+                Pending reviewers: ${pendingReviewers.join(', ')}
+                
+                Please take a look when you have a chance!`;
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: comment
+                });
+              }
+            } 

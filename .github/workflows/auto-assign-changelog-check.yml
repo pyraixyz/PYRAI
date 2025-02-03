@@ -1,0 +1,80 @@
+name: Changelog Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches: [ main ]
+
+jobs:
+  check-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check changelog update
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            // Skip changelog check for certain types of changes
+            const skipLabels = [
+              'dependencies',
+              'no-changelog',
+              'automated',
+              'documentation'
+            ];
+            
+            const hasSkipLabel = pr.labels.some(label => 
+              skipLabels.includes(label.name)
+            );
+            
+            if (hasSkipLabel) {
+              console.log('Changelog check skipped due to PR labels');
+              return;
+            }
+            
+            // Get changed files
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            
+            const changelogUpdated = files.data.some(file => 
+              file.filename === 'CHANGELOG.md'
+            );
+            
+            if (!changelogUpdated) {
+              // Check if PR title follows conventional commits
+              const conventionalPattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.*\))?: .+/;
+              const isConventional = conventionalPattern.test(pr.title);
+              
+              let changelogEntry = '';
+              if (isConventional) {
+                const [, type, scope] = pr.title.match(conventionalPattern);
+                const description = pr.title.split(': ')[1];
+                
+                changelogEntry = `## [Unreleased]
+                
+                ### ${type.charAt(0).toUpperCase() + type.slice(1)}
+                ${scope ? `**${scope.replace(/[()]/g, '')}:** ` : ''}- ${description} (#${pr.number})`;
+              }
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: `## Missing Changelog Entry
+                
+                This PR doesn't include an update to \`CHANGELOG.md\`. Please add an entry like:
+                
+                \`\`\`markdown
+                ${changelogEntry || '### Added/Changed/Fixed\n- Description of your changes (#' + pr.number + ')'}
+                \`\`\`
+                
+                If this change doesn't need a changelog entry, add the \`no-changelog\` label.`
+              });
+              
+              core.setFailed('Changelog entry missing');
+            } 

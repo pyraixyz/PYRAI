@@ -1,0 +1,36 @@
+labels:
+  - name: bug
+    labeled:
+      issue:
+        body: Thank you for reporting this bug! We'll investigate it soon.
+      pr:
+        body: Thank you for submitting a fix! We'll review it shortly.
+
+  - name: enhancement
+    labeled:
+      issue:
+        body: Thanks for suggesting this enhancement! We'll review the proposal.
+      pr:
+        body: Thanks for contributing this enhancement! We'll review it soon.
+
+  - name: documentation
+    labeled:
+      issue:
+        body: Thanks for helping improve our documentation!
+      pr:
+        body: Thanks for contributing to our documentation!
+
+  - name: help wanted
+    labeled:
+      issue:
+        body: This issue is available for anyone to work on. We'd appreciate your help!
+
+  - name: good first issue
+    labeled:
+      issue:
+        body: |
+          This issue is ideal for first-time contributors! Here are some resources to help you get started:
+          - [Contributing Guide](../CONTRIBUTING.md)
+          - [Development Setup](../README.md#development-setup)
+          
+          Feel free to ask questions if you need help! 

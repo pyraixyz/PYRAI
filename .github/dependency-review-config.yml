@@ -1,0 +1,39 @@
+rules:
+  - name: high-severity-vulnerabilities
+    if:
+      - vulnerability.severity == 'high'
+      - vulnerability.type == 'code'
+    block: true
+    message: High severity vulnerabilities are not allowed
+
+  - name: medium-severity-vulnerabilities
+    if:
+      - vulnerability.severity == 'medium'
+      - vulnerability.type == 'code'
+    warn: true
+    message: Please review medium severity vulnerabilities
+
+  - name: deprecated-dependencies
+    if:
+      - dependency.isDeprecated == true
+    warn: true
+    message: This dependency is deprecated. Consider updating to a maintained alternative.
+
+  - name: development-dependencies
+    if:
+      - dependency.type == 'development'
+    allow: true
+
+  - name: production-dependencies
+    if:
+      - dependency.type == 'production'
+    allow: true
+    message: Production dependencies must be explicitly allowed
+
+allowed_licenses:
+  - MIT
+  - Apache-2.0
+  - BSD-2-Clause
+  - BSD-3-Clause
+  - ISC
+  - Python-2.0 

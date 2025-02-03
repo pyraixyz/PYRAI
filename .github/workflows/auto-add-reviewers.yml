@@ -1,0 +1,42 @@
+name: Auto Add Reviewers
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+
+jobs:
+  add-reviewers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Add reviewers based on modified files
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const reviewers = new Set();
+            
+            files.data.forEach(file => {
+              if (file.filename.startsWith('pyrai/core/')) {
+                reviewers.add('core-reviewer');
+              } else if (file.filename.startsWith('pyrai/blockchain/')) {
+                reviewers.add('blockchain-reviewer');
+              } else if (file.filename.startsWith('docs/')) {
+                reviewers.add('docs-reviewer');
+              }
+            });
+            
+            if (reviewers.size > 0) {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                reviewers: Array.from(reviewers)
+              });
+            } 

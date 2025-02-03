@@ -1,0 +1,38 @@
+name: API Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'pyrai/**'
+      - 'docs/**'
+      - '.github/workflows/api-docs.yml'
+
+jobs:
+  api-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pdoc3
+
+      - name: Generate API documentation
+        run: |
+          pdoc --html --output-dir api-docs pyrai
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./api-docs
+          destination_dir: api
+          keep_files: true 

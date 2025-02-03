@@ -1,0 +1,93 @@
+name: Code Metrics
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Monday
+
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install radon xenon pylint
+
+      - name: Calculate metrics
+        run: |
+          radon raw --json . > raw_metrics.json
+          radon cc --json . > complexity_metrics.json
+          radon mi --json . > maintainability_metrics.json
+          pylint --output-format=json pyrai > pylint_report.json || true
+
+      - name: Process metrics
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read metrics
+            const rawMetrics = JSON.parse(fs.readFileSync('raw_metrics.json', 'utf8'));
+            const complexityMetrics = JSON.parse(fs.readFileSync('complexity_metrics.json', 'utf8'));
+            const maintainabilityMetrics = JSON.parse(fs.readFileSync('maintainability_metrics.json', 'utf8'));
+            const pylintReport = JSON.parse(fs.readFileSync('pylint_report.json', 'utf8'));
+            
+            let report = '## 📊 Code Metrics Report\n\n';
+            
+            // Process raw metrics
+            let totalLines = 0;
+            let totalLogicalLines = 0;
+            Object.values(rawMetrics).forEach(file => {
+              totalLines += file.loc;
+              totalLogicalLines += file.sloc;
+            });
+            
+            report += `### Size Metrics
+            - Total Lines: ${totalLines}
+            - Logical Lines: ${totalLogicalLines}
+            - Average Lines per File: ${(totalLines / Object.keys(rawMetrics).length).toFixed(2)}
+            
+            ### Complexity Metrics
+            ${Object.entries(complexityMetrics)
+              .filter(([_, data]) => data.complexity > 10)
+              .map(([file, data]) => `- ${file}: CC=${data.complexity}`)
+              .join('\n')}
+            
+            ### Maintainability Index
+            ${Object.entries(maintainabilityMetrics)
+              .map(([file, data]) => `- ${file}: MI=${data.mi}`)
+              .join('\n')}
+            
+            ### Pylint Score
+            ${(pylintReport.reduce((acc, msg) => acc - msg.message.count, 10)).toFixed(2)}/10
+            `;
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-metrics
+          path: |
+            raw_metrics.json
+            complexity_metrics.json
+            maintainability_metrics.json
+            pylint_report.json 

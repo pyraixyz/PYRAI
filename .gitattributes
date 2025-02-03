@@ -1,0 +1,60 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Python files
+*.py text diff=python
+*.pyi text diff=python
+*.pyw text diff=python
+*.ipynb text
+
+# Documentation
+*.md text diff=markdown
+*.rst text
+*.txt text
+*.pdf binary
+
+# Data files
+*.json text
+*.yaml text
+*.yml text
+*.toml text
+*.csv text
+*.tsv text
+*.sql text
+
+# Docker
+Dockerfile text
+*.dockerignore text
+docker-compose.yml text
+
+# Git config
+.gitattributes text
+.gitignore text
+.gitconfig text
+
+# CI/CD
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Graphics
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.svg text
+
+# Python binary files
+*.db binary
+*.p binary
+*.pkl binary
+*.pickle binary
+*.pyc binary
+*.pyd binary
+*.pyo binary
+
+# Exclude files from exporting
+.gitattributes export-ignore
+.gitignore export-ignore
+.gitkeep export-ignore 

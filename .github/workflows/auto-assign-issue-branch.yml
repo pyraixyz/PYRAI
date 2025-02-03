@@ -1,0 +1,58 @@
+name: Create Issue Branch
+
+on:
+  issues:
+    types: [assigned]
+  pull_request:
+    types: [closed]
+  issue_comment:
+    types: [created]
+
+jobs:
+  create_issue_branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create Issue Branch
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            if (!issue) return;
+            
+            // Only proceed if issue is assigned
+            if (!issue.assignee) return;
+            
+            // Generate branch name
+            const branchName = `issue-${issue.number}-${issue.title
+              .toLowerCase()
+              .replace(/[^\w\s-]/g, '')
+              .replace(/\s+/g, '-')
+              .slice(0, 50)}`;
+            
+            // Create branch from main
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/heads/${branchName}`,
+              sha: (await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/main'
+              })).data.object.sha
+            });
+            
+            // Add comment to issue
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: `Created branch \`${branchName}\` for this issue.
+              
+              You can start working with:
+              \`\`\`bash
+              git fetch origin
+              git checkout ${branchName}
+              \`\`\``
+            }); 

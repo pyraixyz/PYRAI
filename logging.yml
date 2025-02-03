@@ -1,0 +1,59 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  standard:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  json:
+    (): pythonjsonlogger.jsonlogger.JsonFormatter
+    format: '%(asctime)s %(name)s %(levelname)s %(message)s'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: standard
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/pyrai.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf8
+
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: json
+    filename: logs/error.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf8
+
+loggers:
+  pyrai:
+    level: INFO
+    handlers: [console, file, error_file]
+    propagate: false
+
+  pyrai.api:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: false
+
+  pyrai.core:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+  pyrai.security:
+    level: WARNING
+    handlers: [console, file, error_file]
+    propagate: false
+
+root:
+  level: INFO
+  handlers: [console] 

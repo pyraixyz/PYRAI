@@ -1,0 +1,127 @@
+name: Dependency Alerts
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily
+  workflow_dispatch:
+  push:
+    paths:
+      - 'requirements*.txt'
+      - 'setup.py'
+      - 'pyproject.toml'
+
+jobs:
+  check-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety pypi-cleanup
+
+      - name: Check for vulnerabilities
+        id: safety
+        continue-on-error: true
+        run: |
+          safety check -r requirements.txt --json > safety-report.json
+
+      - name: Check for outdated packages
+        id: outdated
+        run: |
+          pip list --outdated --format=json > outdated-packages.json
+
+      - name: Process reports
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Process safety report
+            const safetyReport = JSON.parse(fs.readFileSync('safety-report.json', 'utf8'));
+            const vulnerabilities = safetyReport.filter(v => v.severity === 'high');
+            
+            // Process outdated packages
+            const outdatedPackages = JSON.parse(fs.readFileSync('outdated-packages.json', 'utf8'));
+            
+            // Generate report
+            let report = '## Dependency Security Report\n\n';
+            
+            if (vulnerabilities.length > 0) {
+              report += '### 🚨 Security Vulnerabilities\n\n';
+              vulnerabilities.forEach(v => {
+                report += `- **${v.package}**: ${v.vulnerability}\n`;
+                report += `  - Affected versions: ${v.affected_versions}\n`;
+                report += `  - More info: ${v.more_info_url}\n\n`;
+              });
+            }
+            
+            if (outdatedPackages.length > 0) {
+              report += '### 📦 Outdated Packages\n\n';
+              outdatedPackages.forEach(pkg => {
+                report += `- **${pkg.name}**: ${pkg.version} -> ${pkg.latest_version}\n`;
+              });
+            }
+            
+            // Create or update issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['dependencies'],
+              state: 'open'
+            });
+            
+            const existingIssue = issues.data.find(i => 
+              i.title.startsWith('Dependency Security Report')
+            );
+            
+            if (existingIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: report
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Dependency Security Report - ${new Date().toISOString().split('T')[0]}`,
+                body: report,
+                labels: ['dependencies', 'security']
+              });
+            }
+            
+            // Create PR for automatic updates if needed
+            if (outdatedPackages.length > 0) {
+              const branchName = `deps/update-${Date.now()}`;
+              await exec.exec('git', ['checkout', '-b', branchName]);
+              
+              // Update packages
+              await exec.exec('pip-compile', ['--upgrade', 'requirements.in']);
+              
+              // Create PR
+              await exec.exec('git', ['config', '--local', 'user.email', 'action@github.com']);
+              await exec.exec('git', ['config', '--local', 'user.name', 'GitHub Action']);
+              await exec.exec('git', ['add', 'requirements.txt']);
+              await exec.exec('git', ['commit', '-m', 'chore(deps): update dependencies']);
+              await exec.exec('git', ['push', 'origin', branchName]);
+              
+              await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'chore(deps): update dependencies',
+                head: branchName,
+                base: 'main',
+                body: '## Dependency Updates\n\n' + outdatedPackages.map(pkg => 
+                  `- **${pkg.name}**: ${pkg.version} -> ${pkg.latest_version}`
+                ).join('\n'),
+                labels: ['dependencies', 'automated']
+              });
+            } 

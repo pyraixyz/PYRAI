@@ -1,0 +1,100 @@
+name: Review Statistics
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly on Sunday
+  workflow_dispatch:
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate review stats
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7);
+            
+            // Get all PRs updated in the last week
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              sort: 'updated',
+              direction: 'desc'
+            });
+            
+            const recentPulls = pulls.filter(pr => 
+              new Date(pr.updated_at) > startDate
+            );
+            
+            // Collect review statistics
+            const stats = {
+              totalReviews: 0,
+              reviewers: {},
+              avgReviewTime: 0,
+              totalPRs: recentPulls.length
+            };
+            
+            for (const pr of recentPulls) {
+              const reviews = await github.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              reviews.data.forEach(review => {
+                stats.totalReviews++;
+                
+                const reviewer = review.user.login;
+                if (!stats.reviewers[reviewer]) {
+                  stats.reviewers[reviewer] = {
+                    count: 0,
+                    timeToReview: 0
+                  };
+                }
+                
+                stats.reviewers[reviewer].count++;
+                
+                const reviewTime = new Date(review.submitted_at) - new Date(pr.created_at);
+                stats.reviewers[reviewer].timeToReview += reviewTime;
+              });
+            }
+            
+            // Calculate averages
+            Object.values(stats.reviewers).forEach(reviewer => {
+              reviewer.avgTimeToReview = reviewer.timeToReview / reviewer.count / (1000 * 60 * 60);
+            });
+            
+            // Generate report
+            const report = `## Weekly Review Statistics
+            
+            ### Overview
+            - Total PRs: ${stats.totalPRs}
+            - Total Reviews: ${stats.totalReviews}
+            - Average Reviews per PR: ${(stats.totalReviews / stats.totalPRs).toFixed(1)}
+            
+            ### Top Reviewers
+            ${Object.entries(stats.reviewers)
+              .sort((a, b) => b[1].count - a[1].count)
+              .slice(0, 5)
+              .map(([name, data]) => 
+                `- @${name}: ${data.count} reviews (avg ${data.avgTimeToReview.toFixed(1)} hours)`
+              ).join('\n')}
+            
+            ### Review Time Distribution
+            ${Object.entries(stats.reviewers)
+              .sort((a, b) => a[1].avgTimeToReview - b[1].avgTimeToReview)
+              .map(([name, data]) => 
+                `- @${name}: ${data.avgTimeToReview.toFixed(1)} hours`
+              ).join('\n')}`;
+            
+            // Create issue with report
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Review Statistics Report - ${new Date().toISOString().split('T')[0]}`,
+              body: report,
+              labels: ['metrics', 'automated']
+            }); 

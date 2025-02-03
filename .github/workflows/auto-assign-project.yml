@@ -1,0 +1,35 @@
+name: Auto Assign to Project
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  assign_to_project:
+    runs-on: ubuntu-latest
+    name: Assign to Project
+    steps:
+      - name: Assign issues and PRs to project
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const projectId = 'YOUR_PROJECT_ID';  # Replace with your project ID
+            
+            async function addToProject(itemId, itemType) {
+              await github.rest.projects.createCard({
+                project_id: projectId,
+                content_id: itemId,
+                content_type: itemType
+              });
+            }
+            
+            if (context.payload.issue) {
+              await addToProject(context.payload.issue.id, 'Issue');
+            } else if (context.payload.pull_request) {
+              await addToProject(context.payload.pull_request.id, 'PullRequest');
+            } 

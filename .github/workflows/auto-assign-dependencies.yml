@@ -1,0 +1,53 @@
+name: Auto Assign Dependencies
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'requirements*.txt'
+      - 'setup.py'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - 'Pipfile'
+      - 'Pipfile.lock'
+
+jobs:
+  assign-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const dependencyFiles = {
+              'requirements.txt': 'deps/requirements',
+              'requirements-dev.txt': 'deps/dev',
+              'setup.py': 'deps/setup',
+              'pyproject.toml': 'deps/pyproject',
+              'poetry.lock': 'deps/poetry',
+              'Pipfile': 'deps/pipenv',
+              'Pipfile.lock': 'deps/pipenv'
+            };
+            
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const labels = new Set();
+            files.data.forEach(file => {
+              const label = dependencyFiles[file.filename];
+              if (label) {
+                labels.add(label);
+                labels.add('dependencies');  // Add general dependencies label
+              }
+            });
+            
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: Array.from(labels)
+              });
+            } 

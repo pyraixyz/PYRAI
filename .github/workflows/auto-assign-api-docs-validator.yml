@@ -1,0 +1,75 @@
+name: API Documentation Validator
+
+on:
+  pull_request:
+    paths:
+      - 'pyrai/**/*.py'
+      - 'docs/api/**'
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pydocstyle interrogate docstr-coverage
+
+      - name: Check docstring coverage
+        id: coverage
+        run: |
+          docstr-coverage pyrai --fail-under=80 --verbose > coverage.txt
+
+      - name: Check docstring style
+        id: style
+        run: |
+          pydocstyle pyrai > style.txt || true
+
+      - name: Check docstring presence
+        id: presence
+        run: |
+          interrogate -v pyrai > presence.txt
+
+      - name: Process results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read reports
+            const coverage = fs.readFileSync('coverage.txt', 'utf8');
+            const style = fs.readFileSync('style.txt', 'utf8');
+            const presence = fs.readFileSync('presence.txt', 'utf8');
+            
+            let report = '## API Documentation Review\n\n';
+            
+            // Add coverage report
+            report += '### 📊 Documentation Coverage\n\n```\n' + coverage + '\n```\n\n';
+            
+            // Add style issues if any
+            if (style.trim()) {
+              report += '### 🎨 Style Issues\n\n```\n' + style + '\n```\n\n';
+            }
+            
+            // Add presence report
+            report += '### 🔍 Documentation Presence\n\n```\n' + presence + '\n```\n\n';
+            
+            // Add comment to PR
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: report
+            });
+            
+            // Fail if coverage is below threshold
+            if (coverage.includes('FAILED')) {
+              core.setFailed('Documentation coverage is below threshold');
+            } 

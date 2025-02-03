@@ -1,0 +1,16 @@
+sphinx>=4.0
+sphinx-rtd-theme>=1.0
+sphinx-autodoc-typehints>=1.12
+sphinx-copybutton>=0.4
+myst-parser>=0.15
+nbsphinx>=0.8
+pandoc>=1.0
+ipython>=7.0
+jupyter>=1.0
+mkdocs==1.5.2
+mkdocs-material==9.1.21
+mkdocstrings[python]==0.22.0
+mkdocs-git-revision-date-localized-plugin==1.2.0
+mkdocs-minify-plugin==0.7.1
+pymdown-extensions==10.1
+pygments==2.16.1 

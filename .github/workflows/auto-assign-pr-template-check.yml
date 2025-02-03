@@ -1,0 +1,79 @@
+name: PR Template Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  template-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR template
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            
+            // Required sections
+            const requiredSections = [
+              '## Description',
+              '## Type of change',
+              '## How Has This Been Tested?',
+              '## Checklist'
+            ];
+            
+            const missingItems = [];
+            
+            // Check for required sections
+            for (const section of requiredSections) {
+              if (!body.includes(section)) {
+                missingItems.push(section);
+              }
+            }
+            
+            // Check for empty sections
+            const sections = body.split('##').slice(1);
+            for (const section of sections) {
+              const content = section.split('\n').slice(1).join('\n').trim();
+              if (!content) {
+                const title = section.split('\n')[0].trim();
+                missingItems.push(`${title} (empty section)`);
+              }
+            }
+            
+            if (missingItems.length > 0) {
+              const comment = `## PR Template Issues
+            
+              Please update your PR description. The following sections are missing or empty:
+              ${missingItems.map(item => `- ${item}`).join('\n')}
+              
+              Please refer to the [PR template](.github/PULL_REQUEST_TEMPLATE.md) for guidance.`;
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+              
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: ['needs-description']
+              });
+              
+              core.setFailed('PR template check failed');
+            } else {
+              // Remove label if it exists
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: 'needs-description'
+                });
+              } catch (error) {
+                // Label might not exist
+              }
+            } 

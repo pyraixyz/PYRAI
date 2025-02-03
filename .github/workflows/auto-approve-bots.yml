@@ -1,0 +1,18 @@
+name: Auto Approve Bot PRs
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    if: |
+      github.actor == 'dependabot[bot]' ||
+      github.actor == 'renovate[bot]' ||
+      github.actor == 'pyup-bot'
+    steps:
+      - uses: hmarr/auto-approve-action@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          review-message: "Auto-approving bot PR" 

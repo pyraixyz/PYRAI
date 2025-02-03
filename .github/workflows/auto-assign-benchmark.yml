@@ -1,0 +1,62 @@
+name: Performance Benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'pyrai/**'
+      - 'benchmarks/**'
+      - '.github/workflows/auto-assign-benchmark.yml'
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[benchmark]"
+          pip install pytest-benchmark
+
+      - name: Run benchmarks
+        run: |
+          pytest benchmarks/ --benchmark-only --benchmark-json output.json
+
+      - name: Process benchmark results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const benchmarks = JSON.parse(fs.readFileSync('output.json', 'utf8'));
+            
+            let report = '## Performance Benchmark Results\n\n';
+            report += '| Test | Mean (s) | Min (s) | Max (s) |\n';
+            report += '|------|----------|---------|----------|\n';
+            
+            benchmarks.benchmarks.forEach(b => {
+              report += `| ${b.name} | ${b.stats.mean.toFixed(6)} | ${b.stats.min.toFixed(6)} | ${b.stats.max.toFixed(6)} |\n`;
+            });
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: report
+            });
+
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'pytest'
+          output-file-path: output.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: true 

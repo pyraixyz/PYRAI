@@ -1,0 +1,85 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-cov coverage-badge
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=pyrai --cov-report=xml --cov-report=html
+
+      - name: Generate coverage badge
+        run: |
+          coverage-badge -o coverage.svg -f
+
+      - name: Process coverage results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const xml2js = require('xml2js');
+            
+            // Read coverage XML
+            const coverageXml = fs.readFileSync('coverage.xml', 'utf8');
+            const parser = new xml2js.Parser();
+            const coverage = await parser.parseStringPromise(coverageXml);
+            
+            const metrics = coverage.coverage.metrics[0].$;
+            const totalCoverage = (metrics.statements_covered / metrics.statements * 100).toFixed(2);
+            
+            let status = '🟢 Good';
+            if (totalCoverage < 80) status = '🟡 Warning';
+            if (totalCoverage < 60) status = '🔴 Critical';
+            
+            const report = `## Code Coverage Report: ${status}
+
+            Total Coverage: ${totalCoverage}%
+            
+            | Metric | Covered | Total | Coverage |
+            |--------|---------|-------|----------|
+            | Statements | ${metrics.statements_covered} | ${metrics.statements} | ${(metrics.statements_covered / metrics.statements * 100).toFixed(2)}% |
+            | Branches | ${metrics.branches_covered} | ${metrics.branches} | ${(metrics.branches_covered / metrics.branches * 100).toFixed(2)}% |
+            | Functions | ${metrics.functions_covered} | ${metrics.functions} | ${(metrics.functions_covered / metrics.functions * 100).toFixed(2)}% |
+            
+            [View detailed report](./htmlcov/index.html)`;
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+            
+            if (totalCoverage < 80) {
+              core.setFailed('Code coverage is below 80%');
+            }
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-reports
+          path: |
+            coverage.xml
+            htmlcov/
+            coverage.svg 

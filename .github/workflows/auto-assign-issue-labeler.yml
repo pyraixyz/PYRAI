@@ -1,0 +1,43 @@
+name: Issue Labeler
+
+on:
+  issues:
+    types: [opened, edited]
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: github/issue-labeler@v3
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          configuration-path: .github/labeler.yml
+          enable-versioned-regex: 0
+          include-title: 1
+
+      - name: Add size labels
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue || context.payload.pull_request;
+            const body = issue.body || '';
+            
+            // Calculate size based on description length
+            const size = body.length;
+            let sizeLabel;
+            
+            if (size < 100) sizeLabel = 'size/XS';
+            else if (size < 500) sizeLabel = 'size/S';
+            else if (size < 1000) sizeLabel = 'size/M';
+            else if (size < 2000) sizeLabel = 'size/L';
+            else sizeLabel = 'size/XL';
+            
+            // Add size label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: [sizeLabel]
+            }); 

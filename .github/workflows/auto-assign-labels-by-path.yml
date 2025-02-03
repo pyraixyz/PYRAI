@@ -1,0 +1,47 @@
+name: Auto Assign Labels by Path
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  assign-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const pathLabels = {
+              'pyrai/core/': ['core'],
+              'pyrai/blockchain/': ['blockchain'],
+              'pyrai/api/': ['api'],
+              'docs/': ['documentation'],
+              'tests/': ['testing'],
+              '.github/': ['ci'],
+              'docker/': ['docker']
+            };
+            
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const labels = new Set();
+            files.data.forEach(file => {
+              for (const [path, pathLabels] of Object.entries(pathLabels)) {
+                if (file.filename.startsWith(path)) {
+                  pathLabels.forEach(label => labels.add(label));
+                  break;
+                }
+              }
+            });
+            
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: Array.from(labels)
+              });
+            } 

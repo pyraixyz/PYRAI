@@ -1,0 +1,181 @@
+name: Release Drafter
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Draft Release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Get latest version from pyproject.toml
+            const { version } = JSON.parse(fs.readFileSync('pyproject.toml', 'utf8'));
+            
+            // Get commits since last release
+            const lastRelease = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            }).catch(() => null);
+            
+            const commits = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              since: lastRelease ? lastRelease.data.created_at : null
+            });
+            
+            // Group commits by type
+            const changes = {
+              breaking: [],
+              features: [],
+              fixes: [],
+              other: []
+            };
+            
+            commits.data.forEach(commit => {
+              const message = commit.commit.message.split('\n')[0];
+              const conventionalPattern = /^(feat|fix|breaking|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.*\))?: (.+)/;
+              const match = message.match(conventionalPattern);
+              
+              if (match) {
+                const [, type, scope, description] = match;
+                const entry = scope ? 
+                  `**${scope.replace(/[()]/g, '')}:** ${description}` :
+                  description;
+                
+                switch (type) {
+                  case 'breaking':
+                    changes.breaking.push(entry);
+                    break;
+                  case 'feat':
+                    changes.features.push(entry);
+                    break;
+                  case 'fix':
+                    changes.fixes.push(entry);
+                    break;
+                  default:
+                    changes.other.push(entry);
+                }
+              }
+            });
+            
+            // Generate release notes
+            let releaseNotes = `## What's Changed\n\n`;
+            
+            if (changes.breaking.length > 0) {
+              releaseNotes += '### ⚠️ Breaking Changes\n\n';
+              changes.breaking.forEach(change => {
+                releaseNotes += `- ${change}\n`;
+              });
+              releaseNotes += '\n';
+            }
+            
+            if (changes.features.length > 0) {
+              releaseNotes += '### ✨ New Features\n\n';
+              changes.features.forEach(change => {
+                releaseNotes += `- ${change}\n`;
+              });
+              releaseNotes += '\n';
+            }
+            
+            if (changes.fixes.length > 0) {
+              releaseNotes += '### 🐛 Bug Fixes\n\n';
+              changes.fixes.forEach(change => {
+                releaseNotes += `- ${change}\n`;
+              });
+              releaseNotes += '\n';
+            }
+            
+            if (changes.other.length > 0) {
+              releaseNotes += '### 🔧 Other Changes\n\n';
+              changes.other.forEach(change => {
+                releaseNotes += `- ${change}\n`;
+              });
+            }
+            
+            // Create or update draft release
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${version}`,
+              name: `Release v${version}`,
+              body: releaseNotes,
+              draft: true,
+              prerelease: false
+            });
+
+  update_release_draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter@v5
+        with:
+          config-name: release-drafter.yml
+          disable-autolabeler: false
+          publish: false
+          prerelease: false
+          commitish: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update_changelog:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update changelog
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const fs = require('fs');
+            
+            // Read current changelog
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+            
+            // Determine change type from labels
+            let type = 'Other Changes';
+            const labelMap = {
+              'breaking-change': '💥 Breaking Changes',
+              'feature': '🚀 Features',
+              'bug': '🐛 Bug Fixes',
+              'documentation': '📚 Documentation',
+              'performance': '⚡ Performance'
+            };
+            
+            pr.labels.forEach(label => {
+              if (labelMap[label.name]) {
+                type = labelMap[label.name];
+              }
+            });
+            
+            // Create changelog entry
+            const entry = `- ${pr.title} (#${pr.number}) @${pr.user.login}`;
+            
+            // Insert entry under Unreleased section
+            const updatedChangelog = changelog.replace(
+              /## \[Unreleased\]/,
+              `## [Unreleased]\n\n### ${type}\n${entry}`
+            );
+            
+            // Write updated changelog
+            fs.writeFileSync('CHANGELOG.md', updatedChangelog);
+            
+            // Commit changes if any
+            if (changelog !== updatedChangelog) {
+              await exec.exec('git', ['config', '--local', 'user.email', 'action@github.com']);
+              await exec.exec('git', ['config', '--local', 'user.name', 'GitHub Action']);
+              await exec.exec('git', ['add', 'CHANGELOG.md']);
+              await exec.exec('git', ['commit', '-m', `docs: update changelog for #${pr.number}`]);
+              await exec.exec('git', ['push']);
+            } 

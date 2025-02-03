@@ -1,0 +1,77 @@
+name: PR Conflict Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: '0 */6 * * *'  # Run every 6 hours
+
+jobs:
+  check-conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check for conflicts
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            for (const pr of pulls.data) {
+              const details = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              const hasConflicts = details.data.mergeable === false;
+              const hasLabel = pr.labels.some(label => label.name === 'merge-conflict');
+              
+              if (hasConflicts && !hasLabel) {
+                // Add conflict label
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: ['merge-conflict']
+                });
+                
+                // Add comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `⚠️ This PR has conflicts that need to be resolved before it can be merged.
+                  
+                  Please resolve the conflicts by:
+                  1. Pulling the latest changes from main
+                  2. Resolving any conflicts locally
+                  3. Pushing the resolved changes
+                  
+                  Need help? Check out GitHub's [documentation on resolving conflicts](https://docs.github.com/en/github/collaborating-with-pull-requests/addressing-merge-conflicts).`
+                });
+              } else if (!hasConflicts && hasLabel) {
+                // Remove conflict label
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  name: 'merge-conflict'
+                });
+                
+                // Add resolved comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: '✅ Merge conflicts have been resolved!'
+                });
+              }
+            } 

@@ -1,0 +1,63 @@
+name: PR Size Labeler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  size-label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Label PR based on size
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const additions = context.payload.pull_request.additions;
+            const deletions = context.payload.pull_request.deletions;
+            const changes = additions + deletions;
+            
+            let size;
+            if (changes < 10) size = 'size/XS';
+            else if (changes < 50) size = 'size/S';
+            else if (changes < 200) size = 'size/M';
+            else if (changes < 500) size = 'size/L';
+            else if (changes < 1000) size = 'size/XL';
+            else size = 'size/XXL';
+            
+            // Remove existing size labels
+            const labels = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            for (const label of labels.data) {
+              if (label.name.startsWith('size/')) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: label.name
+                });
+              }
+            }
+            
+            // Add new size label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [size]
+            });
+            
+            // Comment on large PRs
+            if (changes >= 500) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `⚠️ This PR is quite large (${changes} changes). Consider breaking it into smaller PRs for easier review.`
+              });
+            } 

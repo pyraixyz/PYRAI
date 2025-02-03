@@ -1,0 +1,35 @@
+name: Auto Assign Reviewers by Size
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const changes = files.data.reduce((acc, file) => acc + file.changes, 0);
+            
+            let reviewers = ['core-reviewer'];
+            if (changes > 100) {
+              reviewers.push('senior-reviewer');
+            }
+            if (changes > 500) {
+              reviewers.push('tech-lead');
+            }
+            
+            await github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              reviewers: reviewers
+            }); 

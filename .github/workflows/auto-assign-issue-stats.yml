@@ -1,0 +1,125 @@
+name: Issue Statistics
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Monday
+  workflow_dispatch:
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate stats
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const now = new Date();
+            const lastWeek = new Date(now - 7 * 24 * 60 * 60 * 1000);
+            
+            // Get issues and PRs from last week
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              since: lastWeek.toISOString(),
+              state: 'all'
+            });
+            
+            // Calculate statistics
+            const stats = {
+              issues: {
+                opened: 0,
+                closed: 0,
+                avgTimeToClose: 0
+              },
+              prs: {
+                opened: 0,
+                merged: 0,
+                avgTimeToMerge: 0
+              },
+              labels: {}
+            };
+            
+            issues.forEach(item => {
+              if (item.pull_request) {
+                // PR stats
+                stats.prs.opened++;
+                if (item.closed_at) {
+                  if (item.merged_at) {
+                    stats.prs.merged++;
+                    const timeToMerge = new Date(item.merged_at) - new Date(item.created_at);
+                    stats.prs.avgTimeToMerge += timeToMerge;
+                  }
+                }
+              } else {
+                // Issue stats
+                stats.issues.opened++;
+                if (item.closed_at) {
+                  stats.issues.closed++;
+                  const timeToClose = new Date(item.closed_at) - new Date(item.created_at);
+                  stats.issues.avgTimeToClose += timeToClose;
+                }
+              }
+              
+              // Label stats
+              item.labels.forEach(label => {
+                stats.labels[label.name] = (stats.labels[label.name] || 0) + 1;
+              });
+            });
+            
+            // Calculate averages
+            if (stats.issues.closed > 0) {
+              stats.issues.avgTimeToClose = stats.issues.avgTimeToClose / stats.issues.closed / (1000 * 60 * 60 * 24);
+            }
+            if (stats.prs.merged > 0) {
+              stats.prs.avgTimeToMerge = stats.prs.avgTimeToMerge / stats.prs.merged / (1000 * 60 * 60 * 24);
+            }
+            
+            // Generate report
+            const report = `## Weekly Issue Statistics
+            
+            ### 📊 Issues
+            - Opened: ${stats.issues.opened}
+            - Closed: ${stats.issues.closed}
+            - Average time to close: ${stats.issues.avgTimeToClose.toFixed(1)} days
+            
+            ### 🔄 Pull Requests
+            - Opened: ${stats.prs.opened}
+            - Merged: ${stats.prs.merged}
+            - Average time to merge: ${stats.prs.avgTimeToMerge.toFixed(1)} days
+            
+            ### 🏷️ Top Labels
+            ${Object.entries(stats.labels)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5)
+              .map(([label, count]) => `- ${label}: ${count}`)
+              .join('\n')}
+            `;
+            
+            // Create or update stats issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['stats'],
+              state: 'open'
+            });
+            
+            const existingIssue = issues.data.find(i => 
+              i.title.startsWith('Weekly Issue Statistics')
+            );
+            
+            if (existingIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: report
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Weekly Issue Statistics - ${now.toISOString().split('T')[0]}`,
+                body: report,
+                labels: ['stats', 'automated']
+              });
+            } 

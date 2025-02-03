@@ -1,49 +1,39 @@
-site_name: PyRAI Documentation
-site_description: Python Reinforcement AI Engine Documentation
-site_author: PyRAI Team
-repo_url: https://github.com/username/pyrai
+site_name: PyRai Documentation
+site_description: Python library for AI development
+site_author: PyRai Team
+site_url: https://docs.pyrai.xyz
+
+repo_name: pyrai/pyrai
+repo_url: https://github.com/pyrai/pyrai
+edit_uri: edit/main/docs/
 
 theme:
   name: material
   palette:
-    primary: indigo
-    accent: indigo
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
   features:
+    - navigation.instant
+    - navigation.tracking
     - navigation.tabs
     - navigation.sections
     - navigation.expand
+    - navigation.top
     - search.suggest
     - search.highlight
-
-nav:
-  - Home: index.md
-  - Getting Started:
-    - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quickstart.md
-  - User Guide:
-    - Core Concepts: user-guide/concepts.md
-    - Configuration: user-guide/configuration.md
-    - Training: user-guide/training.md
-    - Deployment: user-guide/deployment.md
-    - Monitoring: user-guide/monitoring.md
-  - API Reference:
-    - Core: api/core.md
-    - Backends: api/backends.md
-    - Distributed: api/distributed.md
-    - Deployment: api/deployment.md
-  - Development:
-    - Contributing: development/contributing.md
-    - Testing: development/testing.md
-    - Release Process: development/releasing.md
-
-markdown_extensions:
-  - admonition
-  - codehilite
-  - pymdownx.highlight
-  - pymdownx.superfences
-  - pymdownx.tabbed
-  - toc:
-      permalink: true
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
 
 plugins:
   - search
@@ -51,6 +41,60 @@ plugins:
       default_handler: python
       handlers:
         python:
-          rendering:
+          paths: [pyrai]
+          options:
             show_source: true
-            show_root_heading: true 
+            show_root_heading: true
+            show_category_heading: true
+            show_if_no_docstring: true
+  - git-revision-date-localized:
+      type: datetime
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - footnotes
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+  - User Guide:
+    - Basic Usage: user-guide/basic-usage.md
+    - Advanced Features: user-guide/advanced-features.md
+    - Best Practices: user-guide/best-practices.md
+  - API Reference:
+    - Core: api/core.md
+    - Models: api/models.md
+    - Utils: api/utils.md
+  - Development:
+    - Contributing: development/contributing.md
+    - Development Setup: development/setup.md
+    - Code Style: development/code-style.md
+  - About:
+    - License: about/license.md
+    - Changelog: about/changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/pyrai/pyrai
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pyrai
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/pyrai/pyrai 

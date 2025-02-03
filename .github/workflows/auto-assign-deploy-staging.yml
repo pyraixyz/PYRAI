@@ -1,0 +1,81 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.pyrai.xyz
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Staging
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+
+      - name: Update deployment file
+        run: |
+          TAG="staging"
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:'${TAG}'|' k8s/staging/deployment.yml
+
+      - name: Deploy to DigitalOcean Kubernetes
+        run: |
+          doctl kubernetes cluster kubeconfig save --expiry-seconds 600 ${{ secrets.CLUSTER_NAME }}
+          kubectl apply -f k8s/staging/
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/pyrai-staging -n staging
+
+      - name: Run integration tests
+        run: |
+          pip install -e ".[test]"
+          pytest tests/integration --base-url=https://staging.pyrai.xyz
+
+      - name: Notify deployment status
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const status = process.env.GITHUB_JOB_STATUS;
+            const emoji = status === 'success' ? '✅' : '❌';
+            const message = `${emoji} Staging deployment ${status}\n\nEnvironment: https://staging.pyrai.xyz`;
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: process.env.DEPLOYMENT_ID,
+              state: status,
+              environment_url: 'https://staging.pyrai.xyz',
+              description: `Deployment ${status}`,
+              auto_inactive: true
+            }); 

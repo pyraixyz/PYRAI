@@ -1,0 +1,117 @@
+name: CodeQL Analysis
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly on Sunday
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{matrix.language}}"
+
+      - name: Process Analysis Results
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read SARIF results
+            const sarifFile = 'results/python.sarif';
+            if (!fs.existsSync(sarifFile)) {
+              return;
+            }
+            
+            const sarif = JSON.parse(fs.readFileSync(sarifFile, 'utf8'));
+            const results = sarif.runs[0].results || [];
+            
+            if (results.length === 0) {
+              return;
+            }
+            
+            // Group results by severity
+            const severityGroups = {
+              error: [],
+              warning: [],
+              note: []
+            };
+            
+            results.forEach(result => {
+              const severity = result.level || 'note';
+              severityGroups[severity].push(result);
+            });
+            
+            // Generate report
+            let report = '## CodeQL Analysis Results\n\n';
+            
+            if (severityGroups.error.length > 0) {
+              report += '### 🔴 Errors\n\n';
+              severityGroups.error.forEach(result => {
+                report += `- ${result.message.text}\n`;
+                report += `  - File: ${result.locations[0].physicalLocation.artifactLocation.uri}\n`;
+                report += `  - Line: ${result.locations[0].physicalLocation.region.startLine}\n\n`;
+              });
+            }
+            
+            if (severityGroups.warning.length > 0) {
+              report += '### 🟡 Warnings\n\n';
+              severityGroups.warning.forEach(result => {
+                report += `- ${result.message.text}\n`;
+                report += `  - File: ${result.locations[0].physicalLocation.artifactLocation.uri}\n`;
+                report += `  - Line: ${result.locations[0].physicalLocation.region.startLine}\n\n`;
+              });
+            }
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+              
+              // Fail if there are errors
+              if (severityGroups.error.length > 0) {
+                core.setFailed('CodeQL analysis found critical issues');
+              }
+            } else {
+              // Create issue for scheduled runs
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `CodeQL Analysis Report - ${new Date().toISOString().split('T')[0]}`,
+                body: report,
+                labels: ['security', 'automated']
+              });
+            } 

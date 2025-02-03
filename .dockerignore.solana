@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+.github
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+
+# Documentation
+docs/
+
+# Tests
+tests/
+
+# Misc
+*.log
+.env
+.DS_Store
+Thumbs.db 

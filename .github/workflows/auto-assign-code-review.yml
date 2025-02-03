@@ -1,0 +1,98 @@
+name: Code Review Assignment
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+
+jobs:
+  assign-reviewer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign reviewers
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            // Skip if PR is draft
+            if (pr.draft) {
+              return;
+            }
+            
+            // Get team members
+            const teams = {
+              'core': await github.rest.teams.listMembersInOrg({
+                org: context.repo.owner,
+                team_slug: 'core-team'
+              }),
+              'docs': await github.rest.teams.listMembersInOrg({
+                org: context.repo.owner,
+                team_slug: 'docs-team'
+              }),
+              'security': await github.rest.teams.listMembersInOrg({
+                org: context.repo.owner,
+                team_slug: 'security-team'
+              })
+            };
+            
+            // Determine reviewers based on PR content
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            
+            const reviewers = new Set();
+            
+            // Add reviewers based on file patterns
+            files.data.forEach(file => {
+              if (file.filename.match(/^docs\//)) {
+                teams.docs.data.forEach(member => reviewers.add(member.login));
+              } else if (file.filename.match(/security|auth|crypto/)) {
+                teams.security.data.forEach(member => reviewers.add(member.login));
+              } else {
+                teams.core.data.forEach(member => reviewers.add(member.login));
+              }
+            });
+            
+            // Remove PR author from reviewers
+            reviewers.delete(pr.user.login);
+            
+            // Select random reviewers
+            const numReviewers = pr.additions + pr.deletions > 500 ? 2 : 1;
+            const selectedReviewers = Array.from(reviewers)
+              .sort(() => 0.5 - Math.random())
+              .slice(0, numReviewers);
+            
+            // Request reviews
+            await github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              reviewers: selectedReviewers
+            });
+            
+            // Add comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: `Automatically assigned for review: ${selectedReviewers.map(r => '@' + r).join(', ')}`
+            });
+            
+            // Add size label based on changes
+            const changes = files.data.reduce((acc, file) => acc + file.changes, 0);
+            let sizeLabel;
+            
+            if (changes <= 10) sizeLabel = 'size/XS';
+            else if (changes <= 50) sizeLabel = 'size/S';
+            else if (changes <= 250) sizeLabel = 'size/M';
+            else if (changes <= 1000) sizeLabel = 'size/L';
+            else sizeLabel = 'size/XL';
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [sizeLabel]
+            }); 

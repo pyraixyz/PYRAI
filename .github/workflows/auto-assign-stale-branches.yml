@@ -1,0 +1,52 @@
+name: Clean Stale Branches
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly
+  workflow_dispatch:
+
+jobs:
+  clean-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Delete stale branches
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const branches = await github.rest.repos.listBranches({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              protected: false
+            });
+            
+            const now = new Date();
+            const staleThreshold = 30 * 24 * 60 * 60 * 1000; // 30 days
+            
+            for (const branch of branches.data) {
+              if (branch.name === 'main' || branch.name === 'develop') {
+                continue;
+              }
+              
+              const commit = await github.rest.repos.getCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: branch.commit.sha
+              });
+              
+              const lastCommitDate = new Date(commit.data.commit.committer.date);
+              const age = now - lastCommitDate;
+              
+              if (age > staleThreshold) {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${branch.name}`
+                });
+                
+                console.log(`Deleted stale branch: ${branch.name}`);
+              }
+            } 

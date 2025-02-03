@@ -1,0 +1,55 @@
+name: Generate Release Notes
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  release-notes:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map(l => l.name);
+            
+            let type = 'Other';
+            if (labels.includes('breaking-change')) {
+              type = '💥 Breaking Changes';
+            } else if (labels.includes('feature')) {
+              type = '🚀 Features';
+            } else if (labels.includes('bug')) {
+              type = '🐛 Bug Fixes';
+            } else if (labels.includes('documentation')) {
+              type = '📚 Documentation';
+            } else if (labels.includes('performance')) {
+              type = '⚡ Performance';
+            }
+            
+            const entry = `### ${type}\n\n` +
+                         `- ${pr.title} (#${pr.number}) @${pr.user.login}\n\n` +
+                         `${pr.body ? pr.body.split('\n')[0] : ''}\n`;
+            
+            const fs = require('fs');
+            const releaseNotes = fs.readFileSync('RELEASE_NOTES.md', 'utf8');
+            const updatedNotes = releaseNotes.replace(
+              /## Unreleased/,
+              `## Unreleased\n\n${entry}`
+            );
+            
+            fs.writeFileSync('RELEASE_NOTES.md', updatedNotes);
+            
+            await exec.exec('git', ['config', '--local', 'user.email', 'action@github.com']);
+            await exec.exec('git', ['config', '--local', 'user.name', 'GitHub Action']);
+            await exec.exec('git', ['add', 'RELEASE_NOTES.md']);
+            await exec.exec('git', ['commit', '-m', `docs: update release notes for #${pr.number}`]);
+            await exec.exec('git', ['push']); 

@@ -1,0 +1,48 @@
+name: Auto Assign Component
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  assign-component:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const componentPaths = {
+              'pyrai/core/training/': 'component/training',
+              'pyrai/core/inference/': 'component/inference',
+              'pyrai/blockchain/solana/': 'component/solana',
+              'pyrai/blockchain/ethereum/': 'component/ethereum',
+              'pyrai/api/rest/': 'component/rest-api',
+              'pyrai/api/graphql/': 'component/graphql',
+              'pyrai/monitoring/': 'component/monitoring',
+              'pyrai/storage/': 'component/storage'
+            };
+            
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const components = new Set();
+            files.data.forEach(file => {
+              for (const [path, component] of Object.entries(componentPaths)) {
+                if (file.filename.startsWith(path)) {
+                  components.add(component);
+                  break;
+                }
+              }
+            });
+            
+            if (components.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: Array.from(components)
+              });
+            } 

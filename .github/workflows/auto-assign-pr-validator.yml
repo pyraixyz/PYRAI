@@ -1,0 +1,72 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Validate PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const errors = [];
+            
+            // Check PR title format
+            const titlePattern = /^(feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?: .+/;
+            if (!titlePattern.test(pr.title)) {
+              errors.push(`
+                Invalid PR title format. Please use the conventional commit format:
+                <type>(<scope>): <description>
+                
+                Examples:
+                - feat(core): add new feature
+                - fix(api): fix memory leak
+                - docs(readme): update installation guide
+              `);
+            }
+            
+            // Check PR description
+            const requiredSections = ['Description', 'Changes', 'Testing'];
+            const description = pr.body || '';
+            requiredSections.forEach(section => {
+              if (!description.includes(`## ${section}`)) {
+                errors.push(`Missing required section: ## ${section}`);
+              }
+            });
+            
+            // Check for linked issues
+            if (pr.body && !pr.body.includes('Fixes #') && !pr.body.includes('Closes #')) {
+              errors.push('PR must link to an issue using "Fixes #" or "Closes #"');
+            }
+            
+            // Check file size
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            
+            const MAX_FILE_SIZE = 500 * 1024; // 500KB
+            files.data.forEach(file => {
+              if (file.size > MAX_FILE_SIZE) {
+                errors.push(`File ${file.filename} is too large (${file.size} bytes)`);
+              }
+            });
+            
+            // Report errors
+            if (errors.length > 0) {
+              core.setFailed(errors.join('\n\n'));
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: `## PR Validation Failed\n\n${errors.join('\n\n')}`
+              });
+            } 

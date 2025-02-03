@@ -1,0 +1,61 @@
+# Configuration for various GitHub apps and settings
+
+# Probot Settings (https://probot.github.io/apps/settings/)
+repository:
+  # Repository name
+  name: pyrai
+  
+  # Repository description
+  description: PyRAI - Python SDK for RAI Protocol
+  
+  # Repository topics
+  topics: python, blockchain, ai, machine-learning, sdk
+  
+  # Repository features
+  has_issues: true
+  has_projects: true
+  has_wiki: true
+  has_downloads: true
+  
+  # Branch protection
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: true
+  delete_branch_on_merge: true
+
+# Welcome bot settings
+newIssueWelcomeComment: >
+  Thanks for opening your first issue in PyRAI! 🎉
+  Please make sure you've followed our issue template and provided all necessary information.
+  Our team will review it soon.
+
+newPRWelcomeComment: >
+  Thanks for submitting your first pull request to PyRAI! 🚀
+  Please ensure you've:
+  - [ ] Read our contribution guidelines
+  - [ ] Added/updated tests
+  - [ ] Updated documentation
+  - [ ] Signed our CLA
+
+firstPRMergeComment: >
+  Congratulations on getting your first pull request merged! 🎉
+  We appreciate your contribution to PyRAI.
+  Keep up the great work! 💪
+
+# Label settings
+labels:
+  - name: bug
+    color: d73a4a
+    description: Something isn't working
+  # ... (rest of labels defined in labels.yml)
+
+# Issue templates
+blank_issues_enabled: false
+contact_links:
+  - name: PyRAI Documentation
+    url: https://pyrai.readthedocs.io/
+    about: Check our documentation for answers to common questions
+  - name: PyRAI Discord
+    url: https://discord.gg/pyrai
+    about: Join our Discord community for real-time discussion 

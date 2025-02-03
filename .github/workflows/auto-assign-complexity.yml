@@ -1,0 +1,38 @@
+name: Auto Assign Complexity
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  assign-complexity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Calculate complexity
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            let complexity = 'complexity/low';
+            const changes = files.data.reduce((acc, file) => acc + file.changes, 0);
+            const filesCount = files.data.length;
+            
+            if (changes > 500 || filesCount > 10) {
+              complexity = 'complexity/high';
+            } else if (changes > 200 || filesCount > 5) {
+              complexity = 'complexity/medium';
+            }
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [complexity]
+            }); 

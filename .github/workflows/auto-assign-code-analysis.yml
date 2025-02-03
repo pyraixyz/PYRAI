@@ -1,0 +1,114 @@
+name: Code Analysis
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    paths:
+      - 'pyrai/**'
+      - 'tests/**'
+      - '**.py'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+          pip install radon xenon vulture prospector pytype
+
+      - name: Run code analysis
+        run: |
+          # Cyclomatic complexity
+          radon cc -a -s pyrai > complexity.txt
+          
+          # Maintainability index
+          radon mi -s pyrai > maintainability.txt
+          
+          # Dead code detection
+          vulture pyrai > deadcode.txt || true
+          
+          # Code quality checks
+          prospector --output-format json > prospector.json
+          
+          # Type checking
+          pytype pyrai > type_check.txt || true
+
+      - name: Process analysis results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read analysis results
+            const complexity = fs.readFileSync('complexity.txt', 'utf8');
+            const maintainability = fs.readFileSync('maintainability.txt', 'utf8');
+            const deadcode = fs.readFileSync('deadcode.txt', 'utf8');
+            const prospector = JSON.parse(fs.readFileSync('prospector.json', 'utf8'));
+            const typeCheck = fs.readFileSync('type_check.txt', 'utf8');
+            
+            let report = '## Code Analysis Report\n\n';
+            
+            // Process complexity results
+            report += '### Cyclomatic Complexity\n\n```\n' + complexity + '\n```\n\n';
+            
+            // Process maintainability results
+            report += '### Maintainability Index\n\n```\n' + maintainability + '\n```\n\n';
+            
+            // Process dead code results
+            if (deadcode.trim()) {
+              report += '### Potential Dead Code\n\n```\n' + deadcode + '\n```\n\n';
+            }
+            
+            // Process prospector results
+            if (prospector.messages.length > 0) {
+              report += '### Code Quality Issues\n\n';
+              prospector.messages.forEach(msg => {
+                report += `- ${msg.source}: ${msg.message} (${msg.location.path}:${msg.location.line})\n`;
+              });
+              report += '\n';
+            }
+            
+            // Process type check results
+            if (typeCheck.includes('Error')) {
+              report += '### Type Check Issues\n\n```\n' + typeCheck + '\n```\n';
+            }
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+            
+            // Fail if there are critical issues
+            const hasCriticalIssues = 
+              complexity.includes('F ') || // Very high complexity
+              maintainability.includes('C ') || // Low maintainability
+              prospector.messages.some(m => m.code.startsWith('E')); // Error-level issues
+            
+            if (hasCriticalIssues) {
+              core.setFailed('Critical code quality issues found');
+            }
+
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-analysis
+          path: |
+            complexity.txt
+            maintainability.txt
+            deadcode.txt
+            prospector.json
+            type_check.txt 

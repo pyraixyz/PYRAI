@@ -1,0 +1,64 @@
+name: Version Check
+
+on:
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - 'pyrai/__init__.py'
+      - '.github/workflows/auto-assign-version-check.yml'
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install toml semver
+
+      - name: Check version bump
+        run: |
+          # Get current version from pyproject.toml
+          CURRENT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['tool']['poetry']['version'])")
+          
+          # Get version from main branch
+          git checkout main
+          MAIN_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['tool']['poetry']['version'])")
+          
+          # Compare versions
+          python -c "
+          import semver
+          current='$CURRENT_VERSION'
+          main='$MAIN_VERSION'
+          assert semver.VersionInfo.parse(current) > semver.VersionInfo.parse(main), f'Version must be bumped: {main} -> {current}'
+          "
+
+      - name: Version check status
+        uses: actions/github-script@v6
+        if: always()
+        with:
+          script: |
+            const conclusion = process.env.GITHUB_JOB_STATUS;
+            const message = conclusion === 'success'
+              ? '✅ Version check passed'
+              : '❌ Version must be bumped in pyproject.toml';
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message
+            });
+            
+            if (conclusion !== 'success') {
+              core.setFailed('Version check failed');
+            } 

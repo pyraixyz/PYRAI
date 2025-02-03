@@ -1,0 +1,44 @@
+name: Auto Assign Breaking Changes
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-breaking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const breakingPatterns = [
+              'BREAKING CHANGE:',
+              '!:',
+              'BREAKING-CHANGE:',
+              'feat!:'
+            ];
+            
+            const pr = context.payload.pull_request;
+            const title = pr.title;
+            const body = pr.body || '';
+            
+            const isBreaking = breakingPatterns.some(pattern => 
+              title.includes(pattern) || body.includes(pattern)
+            );
+            
+            if (isBreaking) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['breaking-change']
+              });
+              
+              // Add comment to notify about breaking change
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: '⚠️ This PR contains breaking changes. Please ensure these are documented and necessary.'
+              });
+            } 

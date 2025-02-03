@@ -1,0 +1,113 @@
+name: Auto Update PR
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 */12 * * *'  # Run every 12 hours
+  workflow_dispatch:
+
+jobs:
+  auto-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Update PRs
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            for (const pr of pulls.data) {
+              // Skip if PR has conflicts or is draft
+              if (pr.mergeable === false || pr.draft) {
+                continue;
+              }
+              
+              // Check if PR has auto-update label
+              const hasAutoUpdate = pr.labels.some(label => 
+                label.name === 'auto-update'
+              );
+              
+              if (!hasAutoUpdate) {
+                continue;
+              }
+              
+              try {
+                // Try to update the branch
+                await github.rest.repos.mergeBranch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  base: pr.head.ref,
+                  head: 'main'
+                });
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: '🔄 Automatically updated branch with latest changes from main.'
+                });
+              } catch (error) {
+                // If update fails, comment and remove auto-update label
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `⚠️ Failed to automatically update branch. Please update manually.
+                  
+                  Error: ${error.message}`
+                });
+                
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  name: 'auto-update'
+                });
+              }
+            }
+
+      - name: Check for stale updates
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            const now = new Date();
+            const threeDaysAgo = new Date(now - 3 * 24 * 60 * 60 * 1000);
+            
+            for (const pr of pulls.data) {
+              const lastUpdated = new Date(pr.updated_at);
+              
+              if (lastUpdated < threeDaysAgo) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `⚠️ This PR hasn't been updated in 3 days. Consider:
+                  
+                  1. Updating with the latest changes from main
+                  2. Adding the \`auto-update\` label for automatic updates
+                  3. Closing if no longer needed`
+                });
+                
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: ['stale']
+                });
+              }
+            } 

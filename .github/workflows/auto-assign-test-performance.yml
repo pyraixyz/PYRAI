@@ -1,0 +1,88 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    paths:
+      - 'pyrai/**'
+      - 'tests/performance/**'
+      - 'benchmarks/**'
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly on Sunday
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[benchmark]
+          pip install pytest-benchmark memory_profiler psutil
+
+      - name: Run performance tests
+        run: |
+          pytest tests/performance --benchmark-only --benchmark-json=benchmark.json
+          python -m memory_profiler tests/performance/memory_test.py > memory.txt
+
+      - name: Process results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const benchmarks = JSON.parse(fs.readFileSync('benchmark.json', 'utf8'));
+            const memory = fs.readFileSync('memory.txt', 'utf8');
+            
+            let report = '## Performance Test Results\n\n';
+            
+            // Process benchmark results
+            report += '### Benchmark Results\n\n';
+            benchmarks.benchmarks.forEach(bench => {
+              report += `#### ${bench.name}\n`;
+              report += `- Mean: ${bench.stats.mean.toFixed(6)}s\n`;
+              report += `- Min: ${bench.stats.min.toFixed(6)}s\n`;
+              report += `- Max: ${bench.stats.max.toFixed(6)}s\n`;
+              report += `- StdDev: ${bench.stats.stddev.toFixed(6)}s\n\n`;
+            });
+            
+            // Process memory results
+            report += '### Memory Usage\n\n```\n' + memory + '\n```\n';
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Performance Test Results - ${new Date().toISOString().split('T')[0]}`,
+                body: report,
+                labels: ['performance', 'automated']
+              });
+            }
+
+      - name: Check performance regression
+        run: |
+          python scripts/check_performance.py benchmark.json
+        env:
+          MAX_REGRESSION: 10  # Maximum allowed performance regression in percentage
+
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results
+          path: |
+            benchmark.json
+            memory.txt 

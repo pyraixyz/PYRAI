@@ -1,0 +1,116 @@
+name: Code Style Check
+
+on:
+  pull_request:
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.ruff.toml'
+      - '.flake8'
+      - 'setup.cfg'
+
+jobs:
+  style:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black ruff isort flake8 pylint mypy
+
+      - name: Check code style
+        run: |
+          black --check .
+          isort --check .
+          ruff check .
+          flake8 .
+          pylint pyrai tests
+          mypy pyrai
+
+      - name: Process style results
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let report = '## Code Style Check Results\n\n';
+            
+            // Function to process tool output
+            const processOutput = (tool, output) => {
+              if (output.trim()) {
+                report += `### ${tool} Issues\n\n`;
+                report += '```\n' + output + '\n```\n\n';
+                return true;
+              }
+              return false;
+            };
+            
+            // Check each tool's output
+            let hasIssues = false;
+            
+            try {
+              const blackOutput = fs.readFileSync('black.txt', 'utf8');
+              hasIssues |= processOutput('Black', blackOutput);
+            } catch {}
+            
+            try {
+              const isortOutput = fs.readFileSync('isort.txt', 'utf8');
+              hasIssues |= processOutput('isort', isortOutput);
+            } catch {}
+            
+            try {
+              const ruffOutput = fs.readFileSync('ruff.txt', 'utf8');
+              hasIssues |= processOutput('Ruff', ruffOutput);
+            } catch {}
+            
+            try {
+              const flake8Output = fs.readFileSync('flake8.txt', 'utf8');
+              hasIssues |= processOutput('Flake8', flake8Output);
+            } catch {}
+            
+            try {
+              const pylintOutput = fs.readFileSync('pylint.txt', 'utf8');
+              hasIssues |= processOutput('Pylint', pylintOutput);
+            } catch {}
+            
+            try {
+              const mypyOutput = fs.readFileSync('mypy.txt', 'utf8');
+              hasIssues |= processOutput('MyPy', mypyOutput);
+            } catch {}
+            
+            if (!hasIssues) {
+              report += '✨ No style issues found! Code looks great!\n\n';
+            } else {
+              report += '### How to fix\n\n';
+              report += '1. Run `black .` to format code\n';
+              report += '2. Run `isort .` to sort imports\n';
+              report += '3. Run `ruff --fix .` to fix common issues\n';
+              report += '4. Address remaining issues manually\n\n';
+            }
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: report
+            });
+            
+            if (hasIssues) {
+              core.setFailed('Code style issues found');
+            }
+
+      - name: Upload style results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: style-check-results
+          path: |
+            *.txt 

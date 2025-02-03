@@ -1,0 +1,54 @@
+app:
+  name: pyrai
+  version: 0.1.0
+  debug: true
+  environment: development
+
+server:
+  host: 0.0.0.0
+  port: 8000
+  workers: 1
+  reload: true
+  cors_origins:
+    - http://localhost:3000
+    - http://localhost:8080
+
+database:
+  url: postgresql+asyncpg://pyrai:pyrai@localhost:5432/pyrai
+  pool_size: 5
+  max_overflow: 10
+  echo: true
+
+redis:
+  url: redis://localhost:6379/0
+  pool_size: 5
+
+security:
+  secret_key: "development_secret_key_please_change_in_production"
+  algorithm: HS256
+  access_token_expire_minutes: 30
+  password_min_length: 8
+
+storage:
+  model_dir: ./data/models
+  upload_dir: ./data/uploads
+  max_upload_size: 100MB
+
+logging:
+  level: DEBUG
+  format: json
+  output:
+    console:
+      enabled: true
+      format: pretty
+    file:
+      enabled: true
+      path: ./logs/pyrai.log
+      max_size: 100MB
+      backup_count: 5
+
+monitoring:
+  metrics_enabled: true
+  tracing_enabled: true
+  profiling_enabled: true
+  health_check_interval: 30 

@@ -1,0 +1,33 @@
+# Global owners
+*                    @pyrai/maintainers
+
+# Core functionality
+/pyrai/core/         @pyrai/core-team
+/pyrai/blockchain/   @pyrai/blockchain-team
+/pyrai/api/         @pyrai/api-team
+
+# Documentation
+/docs/              @pyrai/docs-team
+*.md               @pyrai/docs-team
+*.rst              @pyrai/docs-team
+
+# Tests
+/tests/            @pyrai/qa-team
+/tests/security/   @pyrai/security-team
+/tests/performance/ @pyrai/core-team
+
+# GitHub Actions and CI/CD
+/.github/          @pyrai/devops-team
+/.github/workflows @pyrai/devops-team
+
+# Dependencies
+requirements*.txt  @pyrai/devops-team
+setup.py          @pyrai/devops-team
+pyproject.toml    @pyrai/devops-team
+
+# Security-related files
+/pyrai/security/  @pyrai/security-team
+SECURITY.md       @pyrai/security-team
+
+# Configuration files
+/docker/          @pyrai/devops-team 

@@ -1,0 +1,131 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *'  # Run daily
+  paths:
+    - 'pyrai/**'
+    - 'tests/**'
+    - 'docker-compose.yml'
+    - '.github/workflows/auto-assign-integration-test.yml'
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres:
+        image: postgres:13-alpine
+        env:
+          POSTGRES_DB: pyrai_test
+          POSTGRES_USER: pyrai_test
+          POSTGRES_PASSWORD: pyrai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Run integration tests
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: pyrai_test
+          POSTGRES_USER: pyrai_test
+          POSTGRES_PASSWORD: pyrai_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          PYRAI_ENV: test
+        run: |
+          pytest tests/integration -v --junitxml=test-results.xml
+
+      - name: Process test results
+        uses: actions/github-script@v6
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const xml2js = require('xml2js');
+            
+            const results = fs.readFileSync('test-results.xml', 'utf8');
+            const parser = new xml2js.Parser();
+            const data = await parser.parseStringPromise(results);
+            
+            const testsuites = data.testsuites;
+            const total = testsuites.$.tests;
+            const failures = testsuites.$.failures;
+            const errors = testsuites.$.errors;
+            const time = testsuites.$.time;
+            
+            let report = `## Integration Test Results\n\n`;
+            report += `⏱️ Time: ${time}s\n`;
+            report += `📊 Total: ${total}\n`;
+            
+            if (failures > 0 || errors > 0) {
+              report += `❌ Failed: ${parseInt(failures) + parseInt(errors)}\n\n`;
+              report += `### Failures\n\n`;
+              
+              testsuites.testsuite.forEach(suite => {
+                if (suite.testcase) {
+                  suite.testcase.forEach(test => {
+                    if (test.failure || test.error) {
+                      report += `- ${suite.$.name} :: ${test.$.name}\n`;
+                      if (test.failure) {
+                        report += `  \`\`\`\n  ${test.failure[0]._}\n  \`\`\`\n`;
+                      }
+                      if (test.error) {
+                        report += `  \`\`\`\n  ${test.error[0]._}\n  \`\`\`\n`;
+                      }
+                    }
+                  });
+                }
+              });
+            } else {
+              report += `✅ All tests passed!\n`;
+            }
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: report
+            });
+            
+            if (failures > 0 || errors > 0) {
+              core.setFailed('Integration tests failed');
+            }
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            test-results.xml
+            .coverage 

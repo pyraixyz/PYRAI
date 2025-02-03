@@ -1,0 +1,32 @@
+name: Docker Security Scan
+
+on:
+  push:
+    paths:
+      - 'docker/**'
+      - '.github/workflows/docker-scan.yml'
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile: ['base', 'gpu']
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build image
+        run: docker build -t pyrai-${{ matrix.dockerfile }} -f docker/${{ matrix.dockerfile }}/Dockerfile .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'pyrai-${{ matrix.dockerfile }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH' 

@@ -1,0 +1,25 @@
+[flake8]
+max-line-length = 88
+extend-ignore = E203
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    *.egg-info,
+    .env,
+    .venv,
+    venv/,
+    env/
+per-file-ignores =
+    # imported but unused in __init__.py
+    __init__.py: F401
+max-complexity = 10
+docstring-convention = google
+ignore =
+    # E203: whitespace before ':' (black handles this)
+    E203,
+    # W503: line break before binary operator (black handles this)
+    W503,
+    # E501: line too long (black handles this)
+    E501 

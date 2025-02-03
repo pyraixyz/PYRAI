@@ -1,0 +1,50 @@
+name: Auto Assign Teams
+
+on:
+  pull_request:
+    types: [opened, reopened]
+    paths:
+      - 'pyrai/core/**'
+      - 'pyrai/blockchain/**'
+      - 'pyrai/api/**'
+      - 'docs/**'
+
+jobs:
+  assign-teams:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const paths = {
+              'pyrai/core/': 'core-team',
+              'pyrai/blockchain/': 'blockchain-team',
+              'pyrai/api/': 'api-team',
+              'docs/': 'docs-team'
+            };
+            
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            
+            const teams = new Set();
+            files.data.forEach(file => {
+              for (const [path, team] of Object.entries(paths)) {
+                if (file.filename.startsWith(path)) {
+                  teams.add(team);
+                  break;
+                }
+              }
+            });
+            
+            if (teams.size > 0) {
+              await github.rest.teams.addOrUpdateRepoPermissions({
+                org: context.repo.owner,
+                team_slug: Array.from(teams),
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                permission: 'write'
+              });
+            } 

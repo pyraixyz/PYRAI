@@ -1,0 +1,74 @@
+name: Cleanup Workflows
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly on Sunday
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old workflow runs
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const workflows = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            
+            const now = new Date();
+            const retentionDays = 30;
+            const msPerDay = 24 * 60 * 60 * 1000;
+            
+            for (const run of workflows) {
+              const createdAt = new Date(run.created_at);
+              const age = (now - createdAt) / msPerDay;
+              
+              if (age > retentionDays && run.status === 'completed') {
+                try {
+                  await github.rest.actions.deleteWorkflowRun({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: run.id
+                  });
+                  console.log(`Deleted workflow run ${run.id} from ${run.created_at}`);
+                } catch (error) {
+                  console.error(`Failed to delete workflow run ${run.id}: ${error}`);
+                }
+              }
+            }
+
+      - name: Delete old artifacts
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            
+            const now = new Date();
+            const retentionDays = 7;
+            const msPerDay = 24 * 60 * 60 * 1000;
+            
+            for (const artifact of artifacts) {
+              const createdAt = new Date(artifact.created_at);
+              const age = (now - createdAt) / msPerDay;
+              
+              if (age > retentionDays) {
+                try {
+                  await github.rest.actions.deleteArtifact({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    artifact_id: artifact.id
+                  });
+                  console.log(`Deleted artifact ${artifact.id} from ${artifact.created_at}`);
+                } catch (error) {
+                  console.error(`Failed to delete artifact ${artifact.id}: ${error}`);
+                }
+              }
+            } 

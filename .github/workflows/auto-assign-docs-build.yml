@@ -1,0 +1,107 @@
+name: Build Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'pyrai/**/*.py'
+      - '**/*.md'
+      - '**/*.rst'
+      - 'mkdocs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'pyrai/**/*.py'
+      - '**/*.md'
+      - '**/*.rst'
+      - 'mkdocs.yml'
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[docs]
+          pip install mkdocs mkdocs-material mkdocstrings[python] mkdocs-gen-files mkdocs-literate-nav mkdocs-section-index
+
+      - name: Generate API documentation
+        run: |
+          python docs/gen_ref_pages.py
+
+      - name: Build documentation
+        run: mkdocs build --strict
+
+      - name: Check links
+        run: |
+          pip install linkchecker
+          linkchecker site/
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          full_commit_message: ${{ github.event.head_commit.message }}
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v3
+        with:
+          name: documentation
+          path: site/
+
+      - name: Process build results
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read build log
+            const buildLog = fs.readFileSync('mkdocs-build.log', 'utf8');
+            
+            let report = '## Documentation Build Report\n\n';
+            
+            if (buildLog.includes('WARNING')) {
+              report += '### ⚠️ Warnings\n\n```\n';
+              buildLog.split('\n')
+                .filter(line => line.includes('WARNING'))
+                .forEach(warning => {
+                  report += warning + '\n';
+                });
+              report += '```\n\n';
+            }
+            
+            if (buildLog.includes('ERROR')) {
+              report += '### ❌ Errors\n\n```\n';
+              buildLog.split('\n')
+                .filter(line => line.includes('ERROR'))
+                .forEach(error => {
+                  report += error + '\n';
+                });
+              report += '```\n\n';
+            }
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+            
+            // Fail if there are errors
+            if (buildLog.includes('ERROR')) {
+              core.setFailed('Documentation build failed');
+            } 

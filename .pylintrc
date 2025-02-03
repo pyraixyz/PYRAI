@@ -1,0 +1,48 @@
+[MASTER]
+ignore=CVS
+persistent=yes
+load-plugins=
+
+[MESSAGES CONTROL]
+disable=C0111,R0903,C0103,R0913,C0330,R0914,R0912,R0915,R0902,R0904,R0911,R0801,W0511,C0301,C0302,C0325,C0326,C0330
+
+[REPORTS]
+output-format=text
+files-output=no
+reports=no
+evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)
+
+[BASIC]
+good-names=i,j,k,ex,Run,_,fd,fp,id,ip
+bad-names=foo,bar,baz,toto,tutu,tata
+name-group=
+include-naming-hint=no
+function-rgx=[a-z_][a-z0-9_]{2,30}$
+variable-rgx=[a-z_][a-z0-9_]{2,30}$
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+attr-rgx=[a-z_][a-z0-9_]{2,30}$
+argument-rgx=[a-z_][a-z0-9_]{2,30}$
+class-attribute-rgx=([A-Za-z_][A-Za-z0-9_]{2,30}|(__.*__))$
+inlinevar-rgx=[A-Za-z_][A-Za-z0-9_]*$
+class-rgx=[A-Z_][a-zA-Z0-9]+$
+module-rgx=(([a-z_][a-z0-9_]*)|([A-Z][a-zA-Z0-9]+))$
+method-rgx=[a-z_][a-z0-9_]{2,30}$
+no-docstring-rgx=__.*__
+docstring-min-length=-1
+
+[FORMAT]
+max-line-length=88
+ignore-long-lines=^\s*(# )?<?https?://\S+>?$
+single-line-if-stmt=no
+no-space-check=trailing-comma,dict-separator
+max-module-lines=2000
+indent-string='    '
+
+[MISCELLANEOUS]
+notes=FIXME,XXX,TODO
+
+[SIMILARITIES]
+min-similarity-lines=4
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=no 

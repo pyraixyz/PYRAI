@@ -1,0 +1,42 @@
+name: Auto Milestone
+
+on:
+  pull_request:
+    types: [opened, reopened]
+  issues:
+    types: [opened, reopened]
+
+jobs:
+  milestone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'due_on',
+              direction: 'asc'
+            })
+            
+            if (milestones.data.length > 0) {
+              const nextMilestone = milestones.data[0]
+              if (context.payload.pull_request) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  milestone: nextMilestone.number
+                })
+              } else if (context.payload.issue) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.issue.number,
+                  milestone: nextMilestone.number
+                })
+              }
+            } 

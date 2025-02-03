@@ -1,0 +1,75 @@
+name: Review Reminder
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'  # Run at 9 AM on weekdays
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check pending reviews
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            for (const pr of pulls.data) {
+              // Get review requests
+              const reviews = await github.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              const requestedReviewers = pr.requested_reviewers || [];
+              const lastUpdate = new Date(pr.updated_at);
+              const now = new Date();
+              const daysSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60 * 24);
+              
+              // Check for stale reviews
+              if (requestedReviewers.length > 0 && daysSinceUpdate > 2) {
+                const reviewers = requestedReviewers.map(r => '@' + r.login).join(', ');
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `🔔 Gentle reminder: This PR has been waiting for review for ${Math.floor(daysSinceUpdate)} days.
+                  
+                  Pending reviewers: ${reviewers}
+                  
+                  Please take a moment to review this PR. If you're unable to review, please let us know so we can reassign it.`
+                });
+                
+                // Add reminder label
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: ['needs-review']
+                });
+              }
+              
+              // Check for requested changes
+              const changesRequested = reviews.data.some(review => 
+                review.state === 'CHANGES_REQUESTED' &&
+                new Date(review.submitted_at) > new Date(pr.updated_at)
+              );
+              
+              if (changesRequested && daysSinceUpdate > 3) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `@${pr.user.login} This PR has requested changes that haven't been addressed for ${Math.floor(daysSinceUpdate)} days. 
+                  
+                  Please update the PR or let us know if you need help.`
+                });
+              }
+            } 

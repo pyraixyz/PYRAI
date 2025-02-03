@@ -1,0 +1,21 @@
+{{ define "slack.default.title" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}
+{{ end }}
+
+{{ define "slack.default.text" }}
+{{ range .Alerts }}
+*Alert:* {{ .Labels.alertname }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+*Description:* {{ .Annotations.description }}
+*Details:*
+  {{ range .Labels.SortedPairs }}• *{{ .Name }}:* `{{ .Value }}`
+  {{ end }}
+{{ end }}
+{{ end }}
+
+{{ define "slack.default.titlelink" }}
+{{ .CommonAnnotations.runbook_url }}
+{{ end }}
+
+{{ define "slack.default.footer" }}
+{{ if .CommonAnnotations.runbook_url }}Runbook: {{ .CommonAnnotations.runbook_url }}{{ end }}
+{{ end }} 

@@ -1,0 +1,49 @@
+name: Auto Close Invalid
+
+on:
+  issues:
+    types: [opened, edited]
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  close-invalid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const invalidTitles = [
+              'test',
+              'testing',
+              'hello',
+              'hi',
+              'help',
+              'question'
+            ];
+            
+            const title = context.payload.issue ? 
+              context.payload.issue.title.toLowerCase() :
+              context.payload.pull_request.title.toLowerCase();
+            
+            if (invalidTitles.some(invalid => title === invalid)) {
+              const message = `This ${context.payload.issue ? 'issue' : 'pull request'} has been automatically closed because the title is too vague. Please reopen with a more descriptive title that clearly explains the purpose.`;
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue ? 
+                  context.payload.issue.number : 
+                  context.payload.pull_request.number,
+                body: message
+              });
+              
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue ? 
+                  context.payload.issue.number : 
+                  context.payload.pull_request.number,
+                state: 'closed'
+              });
+            } 

@@ -1,0 +1,49 @@
+name: Auto Assign Code Owners
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  assign-reviewers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Get Code Owners
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const codeowners = {
+              'pyrai/core/': '@pyrai/core-team',
+              'pyrai/blockchain/': '@pyrai/blockchain-team',
+              'pyrai/api/': '@pyrai/api-team',
+              'docs/': '@pyrai/docs-team',
+              'tests/': '@pyrai/qa-team',
+              '.github/': '@pyrai/devops-team'
+            };
+            
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const reviewers = new Set();
+            files.data.forEach(file => {
+              for (const [path, owner] of Object.entries(codeowners)) {
+                if (file.filename.startsWith(path)) {
+                  reviewers.add(owner);
+                  break;
+                }
+              }
+            });
+            
+            if (reviewers.size > 0) {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                team_reviewers: Array.from(reviewers)
+              });
+            } 

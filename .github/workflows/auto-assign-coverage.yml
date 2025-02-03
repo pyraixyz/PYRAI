@@ -1,0 +1,93 @@
+name: Coverage Report
+
+on:
+  pull_request:
+    paths:
+      - 'pyrai/**'
+      - 'tests/**'
+      - '**.py'
+      - 'pyproject.toml'
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[test]
+          pip install pytest pytest-cov coverage-badge
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=pyrai --cov-report=xml --cov-report=html
+
+      - name: Generate coverage badge
+        run: |
+          coverage-badge -o coverage.svg -f
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: true
+
+      - name: Process coverage results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const xml2js = require('xml2js');
+            
+            const coverageXml = fs.readFileSync('coverage.xml', 'utf8');
+            const parser = new xml2js.Parser();
+            const results = await parser.parseStringPromise(coverageXml);
+            
+            const coverage = results.coverage.$.line-rate * 100;
+            const threshold = 80;
+            
+            let report = `## Coverage Report\n\n`;
+            report += `Current coverage: ${coverage.toFixed(2)}%\n\n`;
+            
+            if (coverage < threshold) {
+              report += `⚠️ Coverage is below the required ${threshold}%\n\n`;
+            } else {
+              report += `✅ Coverage is above the required ${threshold}%\n\n`;
+            }
+            
+            report += `### Coverage by Package\n\n`;
+            results.coverage.packages[0].package.forEach(pkg => {
+              const pkgCoverage = pkg.$.line-rate * 100;
+              report += `- ${pkg.$.name}: ${pkgCoverage.toFixed(2)}%\n`;
+            });
+            
+            report += `\n[View detailed coverage report](https://codecov.io/gh/${context.repo.owner}/${context.repo.repo}/pull/${context.issue.number})`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: report
+            });
+            
+            if (coverage < threshold) {
+              core.setFailed(`Coverage ${coverage.toFixed(2)}% is below the required ${threshold}%`);
+            }
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            htmlcov/
+            coverage.svg 

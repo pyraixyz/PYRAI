@@ -1,0 +1,32 @@
+# Issue and PR Labels
+type:
+  bug:
+    - '(bug|fix|broken|error|issue|problem)'
+  feature:
+    - '(feature|enhancement|improvement|add|new)'
+  documentation:
+    - '(docs?|documentation)'
+  performance:
+    - '(perf|performance|optimization|speed)'
+  security:
+    - '(security|vulnerability|cve)'
+  dependencies:
+    - '(deps?|dependencies|package)'
+
+# Area Labels
+area:
+  core:
+    - 'pyrai/core/*'
+  blockchain:
+    - 'pyrai/blockchain/*'
+  api:
+    - 'pyrai/api/*'
+  docs:
+    - 'docs/*'
+    - '*.md'
+  tests:
+    - 'tests/*'
+    - '*_test.py'
+  ci:
+    - '.github/workflows/*'
+    - '.github/actions/* 

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+ <!-- Background Circle -->
+ <defs>
+ <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+ <stop offset="0%" style="stop-color:#2B5B84;stop-opacity:1" />
+ <stop offset="100%" style="stop-color:#1E3D5A;stop-opacity:1" />
+ </linearGradient>
+ <!-- AI Node Connection Gradient -->
+ <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+ <stop offset="0%" style="stop-color:#64B5F6;stop-opacity:1" />
+ <stop offset="100%" style="stop-color:#2196F3;stop-opacity:1" />
+ </linearGradient>
+ <!-- Glow Effect -->
+ <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+ <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+ <feMerge>
+ <feMergeNode in="coloredBlur"/>
+ <feMergeNode in="SourceGraphic"/>
+ </feMerge>
+ </filter>
+ </defs>
+ <!-- Main Background Circle -->
+ <circle cx="200" cy="200" r="190" fill="url(#bgGradient)"/>
+ <!-- Python Snake Pattern -->
+ <path d="M 100 200 C 150 100, 250 100, 300 200 S 250 300, 100 200"
+ stroke="#FFD54F" stroke-width="8" fill="none" filter="url(#glow)"/>
+ <!-- AI Network Nodes -->
+ <circle cx="150" cy="150" r="15" fill="#64B5F6" filter="url(#glow)"/>
+ <circle cx="250" cy="150" r="15" fill="#64B5F6" filter="url(#glow)"/>
+ <circle cx="200" cy="250" r="15" fill="#64B5F6" filter="url(#glow)"/>
+ <!-- Node Connection Lines -->
+ <path d="M 150 150 L 250 150 L 200 250 L 150 150"
+ stroke="url(#lineGradient)" stroke-width="3" fill="none"/>
+ <!-- Light Ray Effects -->
+ <path d="M 200 100 L 200 300" stroke="#FFD54F" stroke-width="2" opacity="0.6" filter="url(#glow)"/>
+ <path d="M 100 200 L 300 200" stroke="#FFD54F" stroke-width="2" opacity="0.6" filter="url(#glow)"/>
+ <!-- PYRAI Text -->
+ <text x="200" y="200" font-family="Arial" font-size="48" font-weight="bold"
+ fill="#FFFFFF" text-anchor="middle" dominant-baseline="middle">
+ PYRAI
+ </text>
+</svg> 

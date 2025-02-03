@@ -41,7 +41,6 @@ class Engine:
             Deployment instance
         """
         pass
-```
 
 ## Configuration
 
@@ -119,4 +118,228 @@ pyrai export MODEL_PATH OUTPUT_PATH --format {onnx,torchscript} --input-size INP
 ### Model Benchmark
 ```bash
 pyrai benchmark MODEL_PATH [--output-dir DIR] [--batch-sizes SIZES] [--iterations N]
+```
+
+# PyRai API Documentation
+
+## Authentication
+
+### Login
+```http
+POST /auth/token
+```
+
+Login and get access token.
+
+**Request Body:**
+```json
+{
+    "username": "user@example.com",
+    "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "token_type": "bearer"
+}
+```
+
+### Refresh Token
+```http
+POST /auth/refresh
+```
+
+Refresh access token.
+
+**Headers:**
+- Authorization: Bearer {token}
+
+**Response:**
+```json
+{
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "token_type": "bearer"
+}
+```
+
+## Models
+
+### List Models
+```http
+GET /models
+```
+
+Get list of all models.
+
+**Headers:**
+- Authorization: Bearer {token}
+
+**Query Parameters:**
+- skip (optional): Number of records to skip
+- limit (optional): Maximum number of records to return
+
+**Response:**
+```json
+[
+    {
+        "id": 1,
+        "name": "my_model",
+        "description": "My test model",
+        "model_type": "classification",
+        "framework": "pytorch",
+        "status": "deployed",
+        "versions": [
+            {
+                "id": 1,
+                "version": "1.0.0",
+                "created_at": "2024-01-01T00:00:00Z"
+            }
+        ]
+    }
+]
+```
+
+### Create Model
+```http
+POST /models
+```
+
+Create a new model.
+
+**Headers:**
+- Authorization: Bearer {token}
+
+**Request Body:**
+```json
+{
+    "name": "new_model",
+    "description": "New model description",
+    "model_type": "classification",
+    "framework": "pytorch",
+    "config": {
+        "layers": [100, 50, 10],
+        "activation": "relu"
+    }
+}
+```
+
+**Response:**
+```json
+{
+    "id": 2,
+    "name": "new_model",
+    "description": "New model description",
+    "model_type": "classification",
+    "framework": "pytorch",
+    "status": "created",
+    "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+## Tasks
+
+### List Tasks
+```http
+GET /tasks
+```
+
+Get list of all tasks.
+
+**Headers:**
+- Authorization: Bearer {token}
+
+**Query Parameters:**
+- skip (optional): Number of records to skip
+- limit (optional): Maximum number of records to return
+
+**Response:**
+```json
+[
+    {
+        "id": 1,
+        "name": "training_task",
+        "task_type": "training",
+        "status": "running",
+        "progress": 45,
+        "created_at": "2024-01-01T00:00:00Z"
+    }
+]
+```
+
+### Create Task
+```http
+POST /tasks
+```
+
+Create a new task.
+
+**Headers:**
+- Authorization: Bearer {token}
+
+**Request Body:**
+```json
+{
+    "name": "new_task",
+    "task_type": "training",
+    "params": {
+        "epochs": 10,
+        "batch_size": 32
+    },
+    "model_id": 1
+}
+```
+
+**Response:**
+```json
+{
+    "id": 2,
+    "name": "new_task",
+    "task_type": "training",
+    "status": "pending",
+    "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+## Monitoring
+
+### Get System Metrics
+```http
+GET /monitoring/system
+```
+
+Get system metrics.
+
+**Headers:**
+- Authorization: Bearer {token}
+
+**Response:**
+```json
+{
+    "cpu_usage": 45.2,
+    "memory_usage": 1073741824,
+    "db_connections": 5,
+    "uptime_seconds": 3600,
+    "active_tasks": 2
+}
+```
+
+### Health Check
+```http
+GET /monitoring/health
+```
+
+Check system health.
+
+**Response:**
+```json
+{
+    "status": "healthy",
+    "database": true,
+    "cache": true,
+    "task_queue": true,
+    "uptime": 3600
+}
 ``` 

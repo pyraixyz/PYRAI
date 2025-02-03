@@ -1,0 +1,100 @@
+name: Issue Notifications
+
+on:
+  issues:
+    types: [opened, reopened, closed, assigned]
+  issue_comment:
+    types: [created]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process notifications
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const action = context.payload.action;
+            
+            // Get team members and maintainers
+            const team = await github.rest.teams.listMembersInOrg({
+              org: context.repo.owner,
+              team_slug: 'maintainers'
+            });
+            
+            const maintainers = team.data.map(user => user.login);
+            
+            // Prepare notification message
+            let message = '';
+            let notify = [];
+            
+            if (action === 'opened') {
+              // New issue notification
+              const labels = issue.labels.map(l => l.name);
+              
+              if (labels.includes('bug')) {
+                notify = maintainers;
+                message = `🐛 New bug report needs triage`;
+              } else if (labels.includes('security')) {
+                notify = ['security-team'];
+                message = `🔒 New security issue reported`;
+              } else if (labels.includes('documentation')) {
+                notify = ['docs-team'];
+                message = `📚 New documentation issue`;
+              }
+              
+            } else if (action === 'assigned') {
+              // Assignment notification
+              const assignee = issue.assignee.login;
+              notify = [assignee];
+              message = `📋 You've been assigned to this issue`;
+              
+            } else if (action === 'closed') {
+              // Closure notification
+              if (issue.state_reason === 'completed') {
+                message = `✅ Issue resolved and closed`;
+              } else {
+                message = `❌ Issue closed as not planned/invalid`;
+              }
+              notify = [issue.user.login];
+            }
+            
+            if (message && notify.length > 0) {
+              const notification = `${message}
+              
+              Issue: #${issue.number} ${issue.title}
+              ${notify.map(user => `@${user}`).join(' ')}
+              
+              [View issue](${issue.html_url})`;
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: notification
+              });
+            }
+            
+            // Handle inactive issues
+            if (action === 'created' && context.payload.comment) {
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number
+              });
+              
+              if (comments.data.length === 1) {  // First comment after opening
+                const timeSinceCreation = Date.now() - new Date(issue.created_at).getTime();
+                const daysInactive = timeSinceCreation / (1000 * 60 * 60 * 24);
+                
+                if (daysInactive > 7) {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    body: `This issue was inactive for ${Math.floor(daysInactive)} days. Please update the status or close if no longer relevant.`
+                  });
+                }
+              }
+            } 

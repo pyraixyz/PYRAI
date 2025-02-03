@@ -1,0 +1,29 @@
+name: "CodeQL Config"
+
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+
+paths:
+  - pyrai
+  - tests
+paths-ignore:
+  - '**/test_*.py'
+  - '**/conftest.py'
+  - 'docs/**'
+  - '**/*.md'
+
+query-filters:
+  - exclude:
+      problem.severity:
+        - note
+        - warning
+
+database:
+  analyze-builtin-queries: true
+  analyze-test-code: false
+
+output:
+  sarif-add-snippets: true
+  sarif-add-file-contents: true
+  sarif-category: "/language:python" 

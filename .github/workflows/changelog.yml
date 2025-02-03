@@ -1,0 +1,30 @@
+name: Generate Changelog
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        uses: github-changelog-generator/github-changelog-generator@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          author: true
+          breaking-labels: 'breaking'
+          enhancement-labels: 'enhancement,feature'
+          bug-labels: 'bug,fix'
+          exclude-labels: 'duplicate,question,invalid,wontfix'
+          output: CHANGELOG.md
+
+      - name: Update release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: CHANGELOG.md
+          token: ${{ secrets.GITHUB_TOKEN }} 

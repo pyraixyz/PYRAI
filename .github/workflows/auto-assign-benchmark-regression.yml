@@ -1,0 +1,95 @@
+name: Benchmark Regression
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[benchmark]
+          pip install pytest-benchmark
+
+      - name: Run benchmarks
+        run: |
+          pytest benchmarks/ --benchmark-only --benchmark-json=benchmark.json
+
+      - name: Download previous benchmark data
+        uses: actions/cache@v3
+        with:
+          path: ./cache
+          key: ${{ runner.os }}-benchmark
+
+      - name: Process benchmark results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            const currentData = JSON.parse(fs.readFileSync('benchmark.json', 'utf8'));
+            let previousData;
+            
+            try {
+              previousData = JSON.parse(fs.readFileSync('./cache/benchmark.json', 'utf8'));
+            } catch (error) {
+              previousData = { benchmarks: [] };
+            }
+            
+            let report = '## Benchmark Results\n\n';
+            let hasRegressions = false;
+            
+            currentData.benchmarks.forEach(current => {
+              const previous = previousData.benchmarks.find(b => b.name === current.name);
+              
+              if (previous) {
+                const diff = ((current.stats.mean - previous.stats.mean) / previous.stats.mean) * 100;
+                const emoji = diff > 5 ? '🔴' : diff < -5 ? '🟢' : '⚪';
+                
+                report += `### ${emoji} ${current.name}\n`;
+                report += `- Previous: ${previous.stats.mean.toFixed(6)}s\n`;
+                report += `- Current: ${current.stats.mean.toFixed(6)}s\n`;
+                report += `- Diff: ${diff.toFixed(2)}%\n\n`;
+                
+                if (diff > 10) {
+                  hasRegressions = true;
+                }
+              }
+            });
+            
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report
+              });
+            }
+            
+            // Save current results for future comparison
+            fs.mkdirSync('./cache', { recursive: true });
+            fs.writeFileSync('./cache/benchmark.json', JSON.stringify(currentData));
+            
+            if (hasRegressions) {
+              core.setFailed('Performance regression detected');
+            }
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: benchmark.json 

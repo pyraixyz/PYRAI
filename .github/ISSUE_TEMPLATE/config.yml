@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Issue
+    url: https://github.com/pyrai/security/blob/main/SECURITY.md
+    about: Please report security vulnerabilities according to our security policy
+  - name: Documentation Issue
+    url: https://github.com/pyrai/docs/issues/new
+    about: Please report documentation issues in our docs repository
+  - name: Community Support
+    url: https://discord.gg/pyrai
+    about: Please ask and answer questions in our Discord community
+  - name: Feature Discussion
+    url: https://github.com/pyrai/discussions
+    about: Please discuss new features in our discussions forum 

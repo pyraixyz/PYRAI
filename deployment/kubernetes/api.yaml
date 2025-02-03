@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pyrai-api
+  namespace: pyrai
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pyrai-api
+  template:
+    metadata:
+      labels:
+        app: pyrai-api
+    spec:
+      containers:
+      - name: api
+        image: pyrai/api:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: PYRAI_CONFIG
+          value: /app/config/production.yml
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: pyrai-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: pyrai-secrets
+              key: redis-url
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        readinessProbe:
+          httpGet:
+            path: /monitoring/health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /monitoring/health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: config
+        configMap:
+          name: pyrai-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: pyrai-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pyrai-api
+  namespace: pyrai
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+  selector:
+    app: pyrai-api
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pyrai-api
+  namespace: pyrai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pyrai-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80 

@@ -1,0 +1,44 @@
+name: Auto Assign Area
+
+on:
+  issues:
+    types: [opened, edited]
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  assign-area:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const areaKeywords = {
+              'performance': 'area/performance',
+              'security': 'area/security',
+              'documentation': 'area/docs',
+              'testing': 'area/testing',
+              'api': 'area/api',
+              'blockchain': 'area/blockchain',
+              'ui': 'area/ui',
+              'database': 'area/db'
+            };
+            
+            const item = context.payload.issue || context.payload.pull_request;
+            const text = (item.title + ' ' + item.body).toLowerCase();
+            
+            const areas = new Set();
+            for (const [keyword, label] of Object.entries(areaKeywords)) {
+              if (text.includes(keyword)) {
+                areas.add(label);
+              }
+            }
+            
+            if (areas.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: item.number,
+                labels: Array.from(areas)
+              });
+            } 

@@ -1,0 +1,37 @@
+bug:
+  - '(bug|fix|error|crash|failed|failure)'
+  - 'not working'
+  - 'broken'
+
+enhancement:
+  - '(feature|enhancement|request)'
+  - 'would be nice'
+  - 'suggestion'
+
+documentation:
+  - '(doc|docs|documentation)'
+  - 'typo'
+  - 'example'
+  - 'tutorial'
+
+performance:
+  - '(performance|slow|fast|optimization)'
+  - 'memory leak'
+  - 'cpu usage'
+  - 'gpu usage'
+
+security:
+  - '(security|vulnerability|exploit)'
+  - 'CVE'
+  - 'unsafe'
+
+help wanted:
+  - '(help|assistance|guidance)'
+  - 'how to'
+  - 'how do I'
+
+good first issue:
+  - 'good first issue'
+  - 'beginner friendly'
+  - 'easy'
+  - 'starter' 

@@ -1,0 +1,57 @@
+name: Auto Assign Version
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, unlabeled]
+    branches:
+      - main
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Determine Version Bump
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map(l => l.name);
+            
+            let versionBump = 'patch';  // default
+            
+            if (labels.includes('breaking-change') || 
+                pr.title.includes('BREAKING CHANGE:') ||
+                pr.body?.includes('BREAKING CHANGE:')) {
+              versionBump = 'major';
+            } else if (labels.includes('feature') || 
+                      pr.title.startsWith('feat:')) {
+              versionBump = 'minor';
+            }
+            
+            // Add or update version label
+            const versionLabel = `version/${versionBump}`;
+            const currentLabels = new Set(labels);
+            
+            // Remove any existing version labels
+            for (const label of currentLabels) {
+              if (label.startsWith('version/')) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  name: label
+                });
+              }
+            }
+            
+            // Add new version label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [versionLabel]
+            }); 

@@ -1,0 +1,39 @@
+name: Auto Update Changelog
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  update-changelog:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Update Changelog
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const today = new Date().toISOString().split('T')[0];
+            const entry = `\n## [${today}]\n- ${pr.title} (#${pr.number}) @${pr.user.login}`;
+            
+            const fs = require('fs');
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+            const updatedChangelog = changelog.replace(
+              /# Changelog\n/,
+              `# Changelog\n${entry}\n`
+            );
+            
+            fs.writeFileSync('CHANGELOG.md', updatedChangelog);
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog [skip ci]"
+          git push 

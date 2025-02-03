@@ -1,0 +1,39 @@
+groups:
+  # Core team members
+  core:
+    reviewers:
+      - core-reviewer-1
+      - core-reviewer-2
+      - core-reviewer-3
+    numberOfReviewers: 2
+    paths:
+      - 'pyrai/core/**'
+
+  # Blockchain team members
+  blockchain:
+    reviewers:
+      - blockchain-reviewer-1
+      - blockchain-reviewer-2
+    numberOfReviewers: 1
+    paths:
+      - 'pyrai/blockchain/**'
+
+  # API team members
+  api:
+    reviewers:
+      - api-reviewer-1
+      - api-reviewer-2
+    numberOfReviewers: 1
+    paths:
+      - 'pyrai/api/**'
+
+  # Documentation team
+  docs:
+    reviewers:
+      - docs-reviewer-1
+      - docs-reviewer-2
+    numberOfReviewers: 1
+    paths:
+      - 'docs/**'
+      - '**/*.md'
+      - '**/*.rst' 

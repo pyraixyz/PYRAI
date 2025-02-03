@@ -1,0 +1,61 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+    authors:
+      - dependabot
+  categories:
+    - title: Breaking Changes 🛠
+      labels:
+        - breaking-change
+    - title: New Features 🎉
+      labels:
+        - enhancement
+    - title: Bug Fixes 🐛
+      labels:
+        - bug
+    - title: Documentation 📚
+      labels:
+        - documentation
+    - title: Dependencies 📦
+      labels:
+        - dependencies
+    - title: Other Changes
+      labels:
+        - "*"
+
+release:
+  draft: true
+  prerelease: false
+  name-template: "v$RESOLVED_VERSION"
+  tag-template: "v$RESOLVED_VERSION"
+  version-template: "$MAJOR.$MINOR.$PATCH"
+  version-resolver:
+    major:
+      labels:
+        - breaking-change
+    minor:
+      labels:
+        - enhancement
+    patch:
+      labels:
+        - bug
+        - dependencies
+        - documentation
+    default: patch
+
+  header: |
+    # Release Notes
+    
+    ## What's Changed
+
+  footer: |
+    **Full Changelog**: https://github.com/pyrai/pyrai/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+    
+    ## Installation
+    ```bash
+    pip install pyrai==$RESOLVED_VERSION
+    ```
+    
+    ## Documentation
+    Full documentation is available at https://docs.pyrai.xyz 

@@ -1,0 +1,156 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Initial triage
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+            
+            // Check for issue template sections
+            const hasTemplate = body.includes('## Expected Behavior') ||
+                              body.includes('## Current Behavior') ||
+                              body.includes('## Steps to Reproduce');
+            
+            // Auto-label based on content
+            const labels = [];
+            
+            if (!hasTemplate) {
+              labels.push('needs-template');
+            }
+            
+            if (body.toLowerCase().includes('error') || body.toLowerCase().includes('bug')) {
+              labels.push('type/bug');
+            }
+            
+            if (body.toLowerCase().includes('feature') || body.toLowerCase().includes('enhancement')) {
+              labels.push('type/enhancement');
+            }
+            
+            if (body.toLowerCase().includes('documentation') || body.toLowerCase().includes('docs')) {
+              labels.push('type/documentation');
+            }
+            
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labels
+              });
+            }
+            
+            // Add priority label if missing
+            const hasAnyPriority = issue.labels.some(label => 
+              label.name.startsWith('priority/')
+            );
+            
+            if (!hasAnyPriority) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['priority/needs-triage']
+              });
+            }
+            
+            // Comment on issues missing template
+            if (!hasTemplate) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Thanks for reporting! Please update your issue description to include:
+                
+                - Expected Behavior
+                - Current Behavior
+                - Steps to Reproduce
+                
+                This will help us better understand and address your issue.`
+              });
+            }
+            
+            // Auto-assign based on labels
+            const teamAssignments = {
+              'bug': ['qa-team'],
+              'security': ['security-team'],
+              'documentation': ['docs-team'],
+              'enhancement': ['product-team']
+            };
+            
+            const currentLabels = issue.labels.map(l => l.name);
+            const teamsToAssign = new Set();
+            
+            currentLabels.forEach(label => {
+              const teams = teamAssignments[label];
+              if (teams) {
+                teams.forEach(team => teamsToAssign.add(team));
+              }
+            });
+            
+            if (teamsToAssign.size > 0) {
+              const comment = `Automatically assigned to: ${Array.from(teamsToAssign).map(t => `@pyrai/${t}`).join(', ')}`;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: comment
+              });
+            }
+            
+            // Remove needs-info label if all information is present
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                name: 'needs-info'
+              });
+            } catch (error) {
+              // Label might not exist
+            }
+         
+            // Auto-labeling based on title/body keywords
+            const labelRules = {
+              'bug': ['bug', 'error', 'fail', 'crash', 'broken'],
+              'enhancement': ['feature', 'enhancement', 'request', 'improvement'],
+              'question': ['how to', 'help', 'question', '?'],
+              'documentation': ['docs', 'documentation', 'typo'],
+              'performance': ['slow', 'performance', 'optimization']
+            };
+            
+            const content = `${issue.title} ${issue.body}`.toLowerCase();
+            const labelsToAdd = [];
+            
+            for (const [label, keywords] of Object.entries(labelRules)) {
+              if (keywords.some(keyword => content.includes(keyword))) {
+                labelsToAdd.push(label);
+              }
+            }
+            
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labelsToAdd
+              });
+            }
+         
+            // Add priority label if missing
+            if (!currentLabels.some(l => l.startsWith('priority/'))) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['priority/medium']
+              });
+            } 

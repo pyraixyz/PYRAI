@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYRAI_CONFIG=/app/config/production.yml
+      - DATABASE_URL=postgresql+asyncpg://pyrai:pyrai@db:5432/pyrai
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    networks:
+      - pyrai-network
+
+  db:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_USER=pyrai
+      - POSTGRES_PASSWORD=pyrai
+      - POSTGRES_DB=pyrai
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - pyrai-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - pyrai-network
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      - pyrai-network
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - pyrai-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  pyrai-network:
+    driver: bridge 

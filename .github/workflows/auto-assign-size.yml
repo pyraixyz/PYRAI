@@ -1,0 +1,58 @@
+name: PR Size Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const changes = files.data.reduce((acc, file) => acc + file.changes, 0);
+            const filesCount = files.data.length;
+            
+            let size;
+            let color;
+            
+            if (changes <= 10) {
+              size = 'XS';
+              color = '3cbf00';
+            } else if (changes <= 50) {
+              size = 'S';
+              color = '5d9801';
+            } else if (changes <= 250) {
+              size = 'M';
+              color = '7f7203';
+            } else if (changes <= 1000) {
+              size = 'L';
+              color = 'a14c05';
+            } else {
+              size = 'XL';
+              color = 'c32607';
+            }
+            
+            const comment = `## PR Size: ${size}\n\n` +
+                          `Changes: ${changes} lines\n` +
+                          `Files: ${filesCount}\n\n` +
+                          (size === 'XL' ? '⚠️ This PR is quite large. Consider splitting it into smaller ones.' : '');
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            }); 

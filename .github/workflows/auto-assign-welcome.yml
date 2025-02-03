@@ -1,0 +1,33 @@
+name: Auto Welcome
+
+on:
+  pull_request_target:
+    types: [opened]
+  issues:
+    types: [opened]
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            👋 Thanks for opening your first issue in PyRAI! 
+            
+            We appreciate your contribution and will review it soon. In the meantime:
+            - Please make sure you've followed our issue template
+            - Check if this issue has been reported before
+            - Add any additional context that might be helpful
+            
+            Happy contributing! 🎉
+          pr-message: |
+            🎉 Thanks for opening your first pull request in PyRAI!
+            
+            We're excited to review your changes. A few things to keep in mind:
+            - Make sure all tests pass
+            - Update documentation if needed
+            - Follow our contribution guidelines
+            
+            We'll review your PR soon. Thanks for contributing! 💪 

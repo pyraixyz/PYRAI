@@ -1,0 +1,53 @@
+name: Auto Assign Impact
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  assign-impact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const impactPaths = {
+              'pyrai/core/': 'impact/high',
+              'pyrai/blockchain/': 'impact/high',
+              'pyrai/api/': 'impact/medium',
+              'docs/': 'impact/low',
+              'tests/': 'impact/low'
+            };
+            
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            let highestImpact = 'impact/low';
+            files.data.forEach(file => {
+              for (const [path, impact] of Object.entries(impactPaths)) {
+                if (file.filename.startsWith(path) && 
+                    getImpactLevel(impact) > getImpactLevel(highestImpact)) {
+                  highestImpact = impact;
+                  break;
+                }
+              }
+            });
+            
+            function getImpactLevel(impact) {
+              const levels = {
+                'impact/high': 3,
+                'impact/medium': 2,
+                'impact/low': 1
+              };
+              return levels[impact] || 0;
+            }
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [highestImpact]
+            }); 

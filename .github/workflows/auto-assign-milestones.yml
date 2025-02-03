@@ -1,0 +1,57 @@
+name: Auto Assign Milestones
+
+on:
+  pull_request:
+    types: [opened, reopened]
+  issues:
+    types: [opened, reopened]
+
+jobs:
+  milestone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const today = new Date();
+            const year = today.getFullYear();
+            const quarter = Math.floor(today.getMonth() / 3) + 1;
+            const milestoneName = `Q${quarter} ${year}`;
+            
+            async function findOrCreateMilestone() {
+              try {
+                const milestones = await github.rest.issues.listMilestones({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'open'
+                });
+                
+                let milestone = milestones.data.find(m => m.title === milestoneName);
+                
+                if (!milestone) {
+                  const endDate = new Date(year, quarter * 3, 0);
+                  const response = await github.rest.issues.createMilestone({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: milestoneName,
+                    due_on: endDate.toISOString()
+                  });
+                  milestone = response.data;
+                }
+                
+                return milestone.number;
+              } catch (error) {
+                console.error('Error managing milestone:', error);
+                return null;
+              }
+            }
+            
+            const milestoneNumber = await findOrCreateMilestone();
+            if (milestoneNumber) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue?.number || context.payload.pull_request?.number,
+                milestone: milestoneNumber
+              });
+            } 

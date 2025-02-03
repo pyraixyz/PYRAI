@@ -1,0 +1,79 @@
+name: Type Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - 'setup.cfg'
+      - '.github/workflows/auto-assign-type-check.yml'
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run mypy
+        run: |
+          mypy pyrai tests --html-report typing_report
+
+      - name: Process type check results
+        uses: actions/github-script@v6
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            function parseReport(reportPath) {
+              try {
+                const report = fs.readFileSync(reportPath, 'utf8');
+                return report.split('\n').filter(line => line.includes('error:'));
+              } catch (e) {
+                return [];
+              }
+            }
+            
+            const errors = parseReport('mypy_report.txt');
+            
+            let comment = '## Type Check Results\n\n';
+            
+            if (errors.length === 0) {
+              comment += '✅ No type errors found\n';
+            } else {
+              comment += `❌ Found ${errors.length} type errors:\n\n`;
+              errors.forEach(error => {
+                comment += `- ${error}\n`;
+              });
+            }
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+            
+            if (errors.length > 0) {
+              core.setFailed('Type check failed');
+            }
+
+      - name: Upload type check report
+        uses: actions/upload-artifact@v3
+        with:
+          name: type-check-report
+          path: typing_report/ 

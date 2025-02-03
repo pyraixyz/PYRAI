@@ -1,0 +1,101 @@
+# Git
+.git
+.gitignore
+.github
+
+# Docker
+.docker
+docker-compose*.yml
+Dockerfile*
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Project specific
+data/
+logs/
+*.db
+*.sqlite3
+.DS_Store
+node_modules/
+dist/
+build/
+*.egg-info/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+.venv
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Testing
+.coverage
+coverage.xml
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# Documentation
+docs/
+site/
+
+# Logs
+*.log
+logs/
+log/
+
+# Cache
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local development
+*.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+
+# Project specific
+data/
+models/
+notebooks/
+experiments/ 

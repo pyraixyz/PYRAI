@@ -1,46 +1,98 @@
-# Contributing to PyRAI
+# Contributing to PyRai
 
-We love your input! We want to make contributing to PyRAI as easy and transparent as possible.
+First off, thanks for taking the time to contribute! 🎉 👍
 
-## Development Process
+The following is a set of guidelines for contributing to PyRai. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
 
-We use GitHub to host code, to track issues and feature requests, as well as accept pull requests.
+## Code of Conduct
 
-1. Fork the repo and create your branch from `main`
-2. If you've added code that should be tested, add tests
-3. If you've changed APIs, update the documentation
-4. Ensure the test suite passes
-5. Make sure your code lints
-6. Issue that pull request!
+This project and everyone participating in it is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
-## Pull Request Process
+## How Can I Contribute?
 
-1. Update the README.md with details of changes if needed
-2. Update the CHANGELOG.md with a note describing your changes
-3. The PR will be merged once you have the sign-off of other developers
+### Reporting Bugs
 
-## Any contributions you make will be under the MIT Software License
+Before creating bug reports, please check the issue list as you might find out that you don't need to create one. When you are creating a bug report, please include as many details as possible:
 
-In short, when you submit code changes, your submissions are understood to be under the same [MIT License](http://choosealicense.com/licenses/mit/) that covers the project. Feel free to contact the maintainers if that's a concern.
+* Use a clear and descriptive title
+* Describe the exact steps which reproduce the problem
+* Provide specific examples to demonstrate the steps
+* Describe the behavior you observed after following the steps
+* Explain which behavior you expected to see instead and why
+* Include screenshots and animated GIFs if possible
 
-## Report bugs using GitHub's [issue tracker](https://github.com/username/pyrai/issues)
+### Suggesting Enhancements
 
-We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/username/pyrai/issues/new).
+Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
 
-## Write bug reports with detail, background, and sample code
+* Use a clear and descriptive title
+* Provide a step-by-step description of the suggested enhancement
+* Provide specific examples to demonstrate the steps
+* Describe the current behavior and explain which behavior you expected to see instead
+* Explain why this enhancement would be useful
 
-**Great Bug Reports** tend to have:
+### Pull Requests
 
-- A quick summary and/or background
-- Steps to reproduce
-  - Be specific!
-  - Give sample code if you can
-- What you expected would happen
-- What actually happens
-- Notes (possibly including why you think this might be happening)
+Please follow these steps to have your contribution considered by the maintainers:
 
-## License
-By contributing, you agree that your contributions will be licensed under its MIT License.
+1. Follow all instructions in [the template](PULL_REQUEST_TEMPLATE.md)
+2. Follow the [styleguides](#styleguides)
+3. After you submit your pull request, verify that all status checks are passing
 
-## References
-This document was adapted from the open-source contribution guidelines for [Facebook's Draft](https://github.com/facebook/draft-js/blob/a9316a723f9e918afde44dea68b5f9f39b7d9b00/CONTRIBUTING.md). 
+## Styleguides
+
+### Git Commit Messages
+
+* Use the present tense ("Add feature" not "Added feature")
+* Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
+* Limit the first line to 72 characters or less
+* Reference issues and pull requests liberally after the first line
+* Consider starting the commit message with an applicable emoji:
+    * 🎨 `:art:` when improving the format/structure of the code
+    * 🐎 `:racehorse:` when improving performance
+    * 📝 `:memo:` when writing docs
+    * 🐛 `:bug:` when fixing a bug
+    * 🔥 `:fire:` when removing code or files
+    * 💚 `:green_heart:` when fixing the CI build
+    * ✅ `:white_check_mark:` when adding tests
+    * 🔒 `:lock:` when dealing with security
+    * ⬆️ `:arrow_up:` when upgrading dependencies
+    * ⬇️ `:arrow_down:` when downgrading dependencies
+
+### Python Styleguide
+
+* Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
+* Use [Black](https://github.com/psf/black) code formatter
+* Use [isort](https://github.com/PyCQA/isort) for import sorting
+* Use [mypy](http://mypy-lang.org/) for type checking
+* Write docstrings in [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
+
+### Documentation Styleguide
+
+* Use [Markdown](https://daringfireball.net/projects/markdown/) for documentation
+* Reference functions, classes, and modules in backticks
+* Use section links to other parts of the documentation
+* Include code examples when possible
+
+## Additional Notes
+
+### Issue and Pull Request Labels
+
+This section lists the labels we use to help us track and manage issues and pull requests.
+
+* `bug` - Issues that are bugs
+* `documentation` - Issues for improving or updating our documentation
+* `enhancement` - Issues for new features or improvements
+* `good first issue` - Good for newcomers
+* `help wanted` - Extra attention is needed
+* `invalid` - Issues that aren't valid (e.g. user errors)
+* `question` - Further information is requested
+* `wontfix` - Valid issues that we won't address
+
+## Getting Help
+
+If you need help, you can:
+
+* Join our [Discord server](https://discord.gg/pyrai)
+* Ask in our [GitHub Discussions](https://github.com/pyrai/pyrai/discussions)
+* Email us at support@pyrai.xyz 

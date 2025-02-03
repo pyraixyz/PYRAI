@@ -1,0 +1,54 @@
+name: Auto Assign Status
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+  check_suite:
+    types: [completed]
+
+jobs:
+  assign-status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            let status = 'status/in-progress';
+            
+            // Check if all required checks passed
+            const checks = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha
+            });
+            
+            const allChecksPass = checks.data.check_runs.every(
+              check => check.conclusion === 'success'
+            );
+            
+            // Check if required reviews are approved
+            const reviews = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            
+            const hasApprovals = reviews.data.some(
+              review => review.state === 'APPROVED'
+            );
+            
+            if (allChecksPass && hasApprovals) {
+              status = 'status/ready-to-merge';
+            } else if (reviews.data.some(review => review.state === 'CHANGES_REQUESTED')) {
+              status = 'status/changes-requested';
+            }
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [status]
+            }); 

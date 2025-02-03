@@ -1,0 +1,62 @@
+name: Team Notifications
+
+on:
+  issues:
+    types: [opened, labeled]
+  pull_request:
+    types: [opened, labeled]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notifications
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const item = context.payload.issue || context.payload.pull_request;
+            const labels = item.labels.map(l => l.name);
+            
+            const teamNotifications = {
+              'security': ['security-team'],
+              'bug': ['core-team', 'qa-team'],
+              'feature': ['product-team', 'core-team'],
+              'documentation': ['docs-team'],
+              'dependencies': ['devops-team']
+            };
+            
+            const teamsToNotify = new Set();
+            labels.forEach(label => {
+              const teams = teamNotifications[label];
+              if (teams) {
+                teams.forEach(team => teamsToNotify.add(team));
+              }
+            });
+            
+            if (teamsToNotify.size > 0) {
+              const mentions = Array.from(teamsToNotify)
+                .map(team => `@pyrai/${team}`)
+                .join(' ');
+              
+              const type = item.pull_request ? 'pull request' : 'issue';
+              const message = `Hey ${mentions}! A new ${type} needs your attention: ${item.title}`;
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: item.number,
+                body: message
+              });
+            }
+
+      - name: Notify on Slack
+        if: github.event.label.name == 'security' || github.event.label.name == 'bug'
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          channel-id: 'security-alerts'
+          slack-message: |
+            New ${{ github.event.label.name }} item requires attention:
+            ${{ github.event.issue.title || github.event.pull_request.title }}
+            ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }} 
