@@ -1,214 +1,304 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   Box,
+  Typography,
+  Grid,
+  Stack,
+  Button,
+  Paper,
   Card,
   CardContent,
-  Grid,
-  Typography,
-  Button,
-  Stack,
-  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
-  IconButton,
   Tooltip,
+  IconButton,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Alert,
   Snackbar,
   LinearProgress,
-  Tabs,
-  Tab,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
-  Download as DownloadIcon,
-  Share as ShareIcon,
-  Compare as CompareIcon,
   Assessment as AssessmentIcon,
-  Timeline as TimelineIcon,
-  Memory as ResourceIcon,
+  DataUsage as DatasetIcon,
+  Speed as PerformanceIcon,
   BugReport as ErrorIcon,
+  Download as DownloadIcon,
+  BarChart as MetricsIcon,
+  Timeline as TrendIcon,
+  Visibility as VisualizeIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
+  ScatterChart,
+  Scatter,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as ChartTooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  ScatterChart,
-  Scatter,
-  ZAxis,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import { modelApi } from '@/api/client';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+interface EvaluationMetrics {
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1_score: number;
+  auc_roc: number;
+  confusion_matrix: number[][];
+  class_metrics: {
+    class_name: string;
+    precision: number;
+    recall: number;
+    f1_score: number;
+    support: number;
+  }[];
+  error_analysis: {
+    type: string;
+    count: number;
+    examples: {
+      input: string;
+      predicted: string;
+      actual: string;
+      confidence: number;
+    }[];
+  }[];
+  performance_metrics: {
+    latency_p50: number;
+    latency_p95: number;
+    latency_p99: number;
+    throughput: number;
+    memory_usage: number;
+    cpu_usage: number;
+  };
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+interface DatasetMetrics {
+  total_samples: number;
+  class_distribution: {
+    class_name: string;
+    count: number;
+    percentage: number;
+  }[];
+  feature_statistics: {
+    feature_name: string;
+    mean: number;
+    std: number;
+    min: number;
+    max: number;
+  }[];
+}
 
+function MetricCard({ title, value, unit, icon }: any) {
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`eval-tabpanel-${index}`}
-      aria-labelledby={`eval-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
+    <Card>
+      <CardContent>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Box sx={{ color: 'primary.main' }}>{icon}</Box>
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              {typeof value === 'number' ? value.toFixed(4) : value}
+              {unit && <Typography component="span" variant="caption"> {unit}</Typography>}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {title}
+            </Typography>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }
 
-function PerformanceMetrics({ evaluation }: { evaluation: any }) {
+export default function ModelEvaluation() {
+  const { modelId } = useParams<{ modelId: string }>();
+  const queryClient = useQueryClient();
+  const [selectedDataset, setSelectedDataset] = useState<string>('test');
+  const [message, setMessage] = useState<string>('');
+  const [severity, setSeverity] = useState<'success' | 'error'>('success');
+
+  // Fetch model
+  const { data: model } = useQuery({
+    queryKey: ['model', modelId],
+    queryFn: () => modelApi.getModel(modelId!),
+    enabled: !!modelId,
+  });
+
+  // Fetch evaluation metrics
+  const { data: metrics, refetch: refetchMetrics } = useQuery({
+    queryKey: ['model', modelId, 'evaluation', selectedDataset],
+    queryFn: () => modelApi.getEvaluationMetrics(modelId!, selectedDataset),
+    enabled: !!modelId,
+  });
+
+  // Fetch dataset metrics
+  const { data: datasetMetrics } = useQuery({
+    queryKey: ['model', modelId, 'dataset-metrics', selectedDataset],
+    queryFn: () => modelApi.getDatasetMetrics(modelId!, selectedDataset),
+    enabled: !!modelId,
+  });
+
+  // Run evaluation mutation
+  const { mutate: runEvaluation, isLoading: isEvaluating } = useMutation({
+    mutationFn: () => modelApi.runEvaluation(modelId!, selectedDataset),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['model', modelId, 'evaluation']);
+      setMessage('Evaluation completed successfully');
+      setSeverity('success');
+    },
+    onError: () => {
+      setMessage('Failed to run evaluation');
+      setSeverity('error');
+    },
+  });
+
+  if (!model || !metrics || !datasetMetrics) {
+    return null;
+  }
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
   return (
-    <Stack spacing={3}>
-      {/* Overall Metrics */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6} lg={3}>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
+    <Box>
+      {/* Header */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          Model Evaluation
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Evaluate performance and quality metrics for {model.name}
+        </Typography>
+      </Box>
+
+      {/* Controls */}
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 3 }}
+      >
+        <Stack direction="row" spacing={2} alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Dataset</InputLabel>
+            <Select
+              value={selectedDataset}
+              label="Dataset"
+              onChange={(e) => setSelectedDataset(e.target.value)}
+            >
+              <MenuItem value="train">Training Set</MenuItem>
+              <MenuItem value="validation">Validation Set</MenuItem>
+              <MenuItem value="test">Test Set</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Button
+            variant="contained"
+            startIcon={<AssessmentIcon />}
+            onClick={() => runEvaluation()}
+            disabled={isEvaluating}
           >
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Accuracy
-            </Typography>
-            <Typography variant="h4" color="primary">
-              {(evaluation.metrics.accuracy * 100).toFixed(2)}%
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={evaluation.metrics.accuracy * 100}
-              sx={{ width: '100%', mt: 1 }}
-            />
-          </Paper>
+            {isEvaluating ? 'Evaluating...' : 'Run Evaluation'}
+          </Button>
+        </Stack>
+
+        <Stack direction="row" spacing={2}>
+          <Tooltip title="Refresh">
+            <IconButton onClick={() => refetchMetrics()}>
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Export Results">
+            <IconButton>
+              <DownloadIcon />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Stack>
+
+      {/* Main Metrics */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Accuracy"
+            value={metrics.accuracy * 100}
+            unit="%"
+            icon={<MetricsIcon />}
+          />
         </Grid>
-        <Grid item xs={12} md={6} lg={3}>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              F1 Score
-            </Typography>
-            <Typography variant="h4" color="primary">
-              {evaluation.metrics.f1_score.toFixed(3)}
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={evaluation.metrics.f1_score * 100}
-              sx={{ width: '100%', mt: 1 }}
-            />
-          </Paper>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="F1 Score"
+            value={metrics.f1_score}
+            icon={<AssessmentIcon />}
+          />
         </Grid>
-        <Grid item xs={12} md={6} lg={3}>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Precision
-            </Typography>
-            <Typography variant="h4" color="primary">
-              {evaluation.metrics.precision.toFixed(3)}
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={evaluation.metrics.precision * 100}
-              sx={{ width: '100%', mt: 1 }}
-            />
-          </Paper>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="AUC-ROC"
+            value={metrics.auc_roc}
+            icon={<TrendIcon />}
+          />
         </Grid>
-        <Grid item xs={12} md={6} lg={3}>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Recall
-            </Typography>
-            <Typography variant="h4" color="primary">
-              {evaluation.metrics.recall.toFixed(3)}
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={evaluation.metrics.recall * 100}
-              sx={{ width: '100%', mt: 1 }}
-            />
-          </Paper>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Avg. Latency"
+            value={metrics.performance_metrics.latency_p50}
+            unit="ms"
+            icon={<PerformanceIcon />}
+          />
         </Grid>
       </Grid>
 
-      {/* Confusion Matrix */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle1">Confusion Matrix</Typography>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell />
-                  {evaluation.confusion_matrix.labels.map((label: string) => (
-                    <TableCell key={label} align="center">
-                      {label}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {evaluation.confusion_matrix.matrix.map(
-                  (row: number[], i: number) => (
-                    <TableRow key={i}>
-                      <TableCell component="th" scope="row">
-                        {evaluation.confusion_matrix.labels[i]}
+      {/* Detailed Metrics */}
+      <Grid container spacing={3}>
+        {/* Confusion Matrix */}
+        <Grid item xs={12} md={6}>
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Confusion Matrix
+            </Typography>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell />
+                    {metrics.confusion_matrix[0].map((_, index) => (
+                      <TableCell key={index} align="center">
+                        Predicted {index}
                       </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {metrics.confusion_matrix.map((row, i) => (
+                    <TableRow key={i}>
+                      <TableCell>Actual {i}</TableCell>
                       {row.map((cell, j) => (
                         <TableCell
                           key={j}
@@ -220,565 +310,228 @@ function PerformanceMetrics({ evaluation }: { evaluation: any }) {
                                 : cell > 0
                                 ? 'error.light'
                                 : 'inherit',
-                            color: i === j || cell > 0 ? 'white' : 'inherit',
                           }}
                         >
                           {cell}
                         </TableCell>
                       ))}
                     </TableRow>
-                  )
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Stack>
-      </Paper>
-
-      {/* ROC Curve */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle1">ROC Curve</Typography>
-          <Box sx={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={evaluation.roc_curve}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="fpr"
-                  label={{
-                    value: 'False Positive Rate',
-                    position: 'bottom',
-                  }}
-                />
-                <YAxis
-                  label={{
-                    value: 'True Positive Rate',
-                    angle: -90,
-                    position: 'left',
-                  }}
-                />
-                <ChartTooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="tpr"
-                  stroke="#8884d8"
-                  name="ROC Curve"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </Box>
-          <Typography variant="body2" color="text.secondary" align="center">
-            AUC: {evaluation.metrics.auc.toFixed(3)}
-          </Typography>
-        </Stack>
-      </Paper>
-
-      {/* Per-Class Metrics */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle1">Per-Class Performance</Typography>
-          <Box sx={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={evaluation.class_metrics}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="class" />
-                <PolarRadiusAxis angle={30} domain={[0, 1]} />
-                <Radar
-                  name="Precision"
-                  dataKey="precision"
-                  stroke="#8884d8"
-                  fill="#8884d8"
-                  fillOpacity={0.6}
-                />
-                <Radar
-                  name="Recall"
-                  dataKey="recall"
-                  stroke="#82ca9d"
-                  fill="#82ca9d"
-                  fillOpacity={0.6}
-                />
-                <Legend />
-              </RadarChart>
-            </ResponsiveContainer>
-          </Box>
-        </Stack>
-      </Paper>
-    </Stack>
-  );
-}
-
-function ResourceUsage({ evaluation }: { evaluation: any }) {
-  return (
-    <Stack spacing={3}>
-      {/* Resource Metrics */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6} lg={3}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Inference Time
-              </Typography>
-              <Typography variant="h4">
-                {evaluation.resource_usage.inference_time.toFixed(2)}
-                <Typography
-                  component="span"
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
-                >
-                  ms
-                </Typography>
-              </Typography>
-            </Stack>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={6} lg={3}>
+
+        {/* Class Distribution */}
+        <Grid item xs={12} md={6}>
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Memory Usage
-              </Typography>
-              <Typography variant="h4">
-                {(
-                  evaluation.resource_usage.memory_usage / (1024 * 1024 * 1024)
-                ).toFixed(2)}
-                <Typography
-                  component="span"
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
-                >
-                  GB
-                </Typography>
-              </Typography>
-            </Stack>
+            <Typography variant="h6" gutterBottom>
+              Class Distribution
+            </Typography>
+            <Box sx={{ height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={datasetMetrics.class_distribution}
+                    dataKey="percentage"
+                    nameKey="class_name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    label
+                  >
+                    {datasetMetrics.class_distribution.map((_, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </Box>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={6} lg={3}>
+
+        {/* Per-Class Metrics */}
+        <Grid item xs={12}>
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle2" color="text.secondary">
-                GPU Memory
-              </Typography>
-              <Typography variant="h4">
-                {(
-                  evaluation.resource_usage.gpu_memory / (1024 * 1024 * 1024)
-                ).toFixed(2)}
-                <Typography
-                  component="span"
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
-                >
-                  GB
-                </Typography>
-              </Typography>
-            </Stack>
+            <Typography variant="h6" gutterBottom>
+              Per-Class Metrics
+            </Typography>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Class</TableCell>
+                    <TableCell align="right">Precision</TableCell>
+                    <TableCell align="right">Recall</TableCell>
+                    <TableCell align="right">F1 Score</TableCell>
+                    <TableCell align="right">Support</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {metrics.class_metrics.map((metric) => (
+                    <TableRow key={metric.class_name}>
+                      <TableCell>{metric.class_name}</TableCell>
+                      <TableCell align="right">
+                        {(metric.precision * 100).toFixed(2)}%
+                      </TableCell>
+                      <TableCell align="right">
+                        {(metric.recall * 100).toFixed(2)}%
+                      </TableCell>
+                      <TableCell align="right">
+                        {(metric.f1_score * 100).toFixed(2)}%
+                      </TableCell>
+                      <TableCell align="right">{metric.support}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={6} lg={3}>
+
+        {/* Error Analysis */}
+        <Grid item xs={12}>
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle2" color="text.secondary">
-                CPU Usage
-              </Typography>
-              <Typography variant="h4">
-                {evaluation.resource_usage.cpu_usage.toFixed(1)}
-                <Typography
-                  component="span"
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
-                >
-                  %
-                </Typography>
-              </Typography>
-            </Stack>
+            <Typography variant="h6" gutterBottom>
+              Error Analysis
+            </Typography>
+            <Grid container spacing={3}>
+              {/* Error Distribution */}
+              <Grid item xs={12} md={6}>
+                <Box sx={{ height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={metrics.error_analysis}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="type" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Bar dataKey="count" fill="#8884d8" name="Error Count" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              </Grid>
+
+              {/* Error Examples */}
+              <Grid item xs={12} md={6}>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Input</TableCell>
+                        <TableCell>Predicted</TableCell>
+                        <TableCell>Actual</TableCell>
+                        <TableCell align="right">Confidence</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {metrics.error_analysis
+                        .flatMap((error) => error.examples)
+                        .slice(0, 5)
+                        .map((example, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{example.input}</TableCell>
+                            <TableCell>{example.predicted}</TableCell>
+                            <TableCell>{example.actual}</TableCell>
+                            <TableCell align="right">
+                              {(example.confidence * 100).toFixed(2)}%
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+
+        {/* Performance Metrics */}
+        <Grid item xs={12}>
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Performance Metrics
+            </Typography>
+            <Grid container spacing={3}>
+              {/* Latency Distribution */}
+              <Grid item xs={12} md={6}>
+                <Box sx={{ height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: 'P50',
+                          value: metrics.performance_metrics.latency_p50,
+                        },
+                        {
+                          name: 'P95',
+                          value: metrics.performance_metrics.latency_p95,
+                        },
+                        {
+                          name: 'P99',
+                          value: metrics.performance_metrics.latency_p99,
+                        },
+                      ]}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="value"
+                        fill="#8884d8"
+                        name="Latency (ms)"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              </Grid>
+
+              {/* Resource Usage */}
+              <Grid item xs={12} md={6}>
+                <Box sx={{ height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: 'CPU Usage',
+                          value: metrics.performance_metrics.cpu_usage,
+                        },
+                        {
+                          name: 'Memory Usage',
+                          value: metrics.performance_metrics.memory_usage,
+                        },
+                        {
+                          name: 'Throughput',
+                          value: metrics.performance_metrics.throughput,
+                        },
+                      ]}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="value"
+                        fill="#82ca9d"
+                        name="Resource Usage"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              </Grid>
+            </Grid>
           </Paper>
         </Grid>
       </Grid>
-
-      {/* Resource Usage Over Time */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle1">Resource Usage Over Time</Typography>
-          <Box sx={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={evaluation.resource_usage.timeline}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="timestamp" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <ChartTooltip />
-                <Legend />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="memory"
-                  stroke="#8884d8"
-                  name="Memory (GB)"
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="cpu"
-                  stroke="#82ca9d"
-                  name="CPU (%)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </Box>
-        </Stack>
-      </Paper>
-
-      {/* Batch Processing Analysis */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle1">Batch Processing Analysis</Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} lg={6}>
-              <Box sx={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart>
-                    <CartesianGrid />
-                    <XAxis
-                      type="number"
-                      dataKey="batch_size"
-                      name="Batch Size"
-                      label={{
-                        value: 'Batch Size',
-                        position: 'bottom',
-                      }}
-                    />
-                    <YAxis
-                      type="number"
-                      dataKey="time"
-                      name="Processing Time"
-                      label={{
-                        value: 'Processing Time (ms)',
-                        angle: -90,
-                        position: 'left',
-                      }}
-                    />
-                    <ZAxis
-                      type="number"
-                      dataKey="memory"
-                      range={[50, 400]}
-                      name="Memory Usage"
-                    />
-                    <ChartTooltip cursor={{ strokeDasharray: '3 3' }} />
-                    <Scatter
-                      name="Batch Analysis"
-                      data={evaluation.batch_analysis}
-                      fill="#8884d8"
-                    />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </Box>
-            </Grid>
-            <Grid item xs={12} lg={6}>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Batch Size</TableCell>
-                      <TableCell align="right">Processing Time (ms)</TableCell>
-                      <TableCell align="right">Memory Usage (MB)</TableCell>
-                      <TableCell align="right">Throughput (samples/s)</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {evaluation.batch_analysis.map((item: any) => (
-                      <TableRow key={item.batch_size}>
-                        <TableCell>{item.batch_size}</TableCell>
-                        <TableCell align="right">
-                          {item.time.toFixed(2)}
-                        </TableCell>
-                        <TableCell align="right">
-                          {(item.memory / (1024 * 1024)).toFixed(2)}
-                        </TableCell>
-                        <TableCell align="right">
-                          {((item.batch_size * 1000) / item.time).toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Grid>
-          </Grid>
-        </Stack>
-      </Paper>
-    </Stack>
-  );
-}
-
-function ErrorAnalysis({ evaluation }: { evaluation: any }) {
-  return (
-    <Stack spacing={3}>
-      {/* Error Distribution */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle1">Error Distribution</Typography>
-          <Box sx={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={evaluation.error_analysis.distribution}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" />
-                <YAxis />
-                <ChartTooltip />
-                <Legend />
-                <Bar
-                  dataKey="count"
-                  fill="#8884d8"
-                  name="Number of Errors"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Box>
-        </Stack>
-      </Paper>
-
-      {/* Common Error Patterns */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle1">Common Error Patterns</Typography>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Pattern</TableCell>
-                  <TableCell>Description</TableCell>
-                  <TableCell align="right">Frequency</TableCell>
-                  <TableCell>Suggested Action</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {evaluation.error_analysis.patterns.map((pattern: any) => (
-                  <TableRow key={pattern.id}>
-                    <TableCell>{pattern.name}</TableCell>
-                    <TableCell>{pattern.description}</TableCell>
-                    <TableCell align="right">
-                      <Chip
-                        label={`${pattern.frequency}%`}
-                        color={
-                          pattern.frequency > 10
-                            ? 'error'
-                            : pattern.frequency > 5
-                            ? 'warning'
-                            : 'success'
-                        }
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{pattern.suggestion}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Stack>
-      </Paper>
-
-      {/* Edge Cases */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle1">Edge Cases</Typography>
-          <Grid container spacing={2}>
-            {evaluation.error_analysis.edge_cases.map((edge: any) => (
-              <Grid item xs={12} md={6} key={edge.id}>
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 2, bgcolor: 'background.default' }}
-                >
-                  <Stack spacing={1}>
-                    <Typography variant="subtitle2">{edge.type}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {edge.description}
-                    </Typography>
-                    <Box>
-                      <Chip
-                        label={`Impact: ${edge.impact}%`}
-                        color={
-                          edge.impact > 10
-                            ? 'error'
-                            : edge.impact > 5
-                            ? 'warning'
-                            : 'success'
-                        }
-                        size="small"
-                        sx={{ mr: 1 }}
-                      />
-                      <Chip
-                        label={edge.status}
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Box>
-                  </Stack>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-        </Stack>
-      </Paper>
-    </Stack>
-  );
-}
-
-export default function ModelEvaluation() {
-  const { modelId } = useParams<{ modelId: string }>();
-  const navigate = useNavigate();
-  const [tabValue, setTabValue] = useState(0);
-  const [message, setMessage] = useState<string>('');
-  const [severity, setSeverity] = useState<'success' | 'error'>('success');
-  const queryClient = useQueryClient();
-
-  // Fetch model
-  const { data: model } = useQuery({
-    queryKey: ['model', modelId],
-    queryFn: () => modelApi.getModel(modelId!),
-    enabled: !!modelId,
-  });
-
-  // Fetch evaluation results
-  const { data: evaluation, isLoading } = useQuery({
-    queryKey: ['model', modelId, 'evaluation'],
-    queryFn: () => modelApi.getEvaluation(modelId!),
-    enabled: !!modelId,
-  });
-
-  // Start evaluation mutation
-  const { mutate: startEvaluation } = useMutation({
-    mutationFn: () => modelApi.startEvaluation(modelId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['model', modelId, 'evaluation']);
-      setMessage('Evaluation started successfully');
-      setSeverity('success');
-    },
-    onError: () => {
-      setMessage('Failed to start evaluation');
-      setSeverity('error');
-    },
-  });
-
-  // Export results mutation
-  const { mutate: exportResults } = useMutation({
-    mutationFn: () => modelApi.exportEvaluation(modelId!),
-    onSuccess: () => {
-      setMessage('Results exported successfully');
-      setSeverity('success');
-    },
-    onError: () => {
-      setMessage('Failed to export results');
-      setSeverity('error');
-    },
-  });
-
-  if (!model || !evaluation) {
-    return null;
-  }
-
-  return (
-    <Box>
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography variant="h5" gutterBottom>
-            Model Evaluation
-          </Typography>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" color="text.secondary">
-              Last evaluated: {format(new Date(evaluation.timestamp), 'PPp')}
-            </Typography>
-            <Chip
-              label={evaluation.status}
-              color={
-                evaluation.status === 'completed'
-                  ? 'success'
-                  : evaluation.status === 'running'
-                  ? 'warning'
-                  : 'error'
-              }
-              size="small"
-            />
-          </Stack>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={() => startEvaluation()}
-          >
-            Re-evaluate
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => exportResults()}
-          >
-            Export Results
-          </Button>
-          <Tooltip title="Share Results">
-            <IconButton>
-              <ShareIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Compare Models">
-            <IconButton>
-              <CompareIcon />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      </Box>
-
-      {/* Content */}
-      <Card>
-        <CardContent>
-          <Tabs
-            value={tabValue}
-            onChange={(_, newValue) => setTabValue(newValue)}
-            aria-label="evaluation tabs"
-          >
-            <Tab
-              icon={<AssessmentIcon />}
-              label="Performance"
-              id="eval-tab-0"
-              aria-controls="eval-tabpanel-0"
-            />
-            <Tab
-              icon={<ResourceIcon />}
-              label="Resource Usage"
-              id="eval-tab-1"
-              aria-controls="eval-tabpanel-1"
-            />
-            <Tab
-              icon={<ErrorIcon />}
-              label="Error Analysis"
-              id="eval-tab-2"
-              aria-controls="eval-tabpanel-2"
-            />
-          </Tabs>
-
-          <TabPanel value={tabValue} index={0}>
-            <PerformanceMetrics evaluation={evaluation} />
-          </TabPanel>
-          <TabPanel value={tabValue} index={1}>
-            <ResourceUsage evaluation={evaluation} />
-          </TabPanel>
-          <TabPanel value={tabValue} index={2}>
-            <ErrorAnalysis evaluation={evaluation} />
-          </TabPanel>
-        </CardContent>
-      </Card>
 
       {/* Message Snackbar */}
       <Snackbar
