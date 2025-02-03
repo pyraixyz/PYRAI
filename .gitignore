@@ -22,43 +22,49 @@ wheels/
 
 # Virtual Environment
 venv/
-ENV/
 env/
-.env
+ENV/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-.DS_Store
+.project
+.pydevproject
+.settings/
 
-# Logs
+# Logs and databases
 *.log
-logs/
-log/
+*.sqlite
+*.db
 
-# Local development
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Model artifacts
+models/
+checkpoints/
+runs/
+*.pth
+*.h5
+*.onnx
+*.pkl
 
-# Dependencies
-node_modules/
-package-lock.json
-yarn.lock
+# Deployment
+.env
+*.env
+kubernetes/secrets/
+builds/
 
-# Build
-.next/
-out/
-build/
-dist/
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
 
-# Cache
-.cache/
-.npm/
+# Documentation
+docs/_build/
+site/
 
-# System
+# Temporary files
+*.tmp
 .DS_Store
 Thumbs.db 
